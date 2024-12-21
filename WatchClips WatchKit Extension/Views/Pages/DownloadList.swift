@@ -94,7 +94,7 @@ struct DownloadList: View {
 
             // Fetch fresh server videos
             Task {
-                await viewModel.loadServerVideos(forCode: code, useCache: false)
+                await viewModel.loadServerVideos(forCode: code, useCache: true)
             }
         }
         // Present the player in full screen for a fully downloaded video

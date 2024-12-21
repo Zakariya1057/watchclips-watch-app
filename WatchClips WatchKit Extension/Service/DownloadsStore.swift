@@ -26,10 +26,16 @@ class DownloadsStore {
             print("[DownloadsStore] encode error: \(error)")
         }
     }
+
+    /// Clear all downloads from local storage
+    func clearAllDownloads() {
+        UserDefaults.standard.removeObject(forKey: userDefaultsKey)
+        print("[DownloadsStore] Cleared all downloads from UserDefaults.")
+    }
 }
 
 extension DownloadsStore {
-    /// Returns true if the stored item for `videoId` is found with a .completed downloadStatus
+    /// Returns true if the stored item for `videoId` has a `.completed` status
     func isDownloaded(videoId: String) -> Bool {
         let allDownloads = loadDownloads()
         guard let item = allDownloads.first(where: { $0.id == videoId }) else {
@@ -38,4 +44,3 @@ extension DownloadsStore {
         return item.downloadStatus == .completed
     }
 }
-

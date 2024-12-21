@@ -156,11 +156,13 @@ struct VideoPlayerView: View {
         //    This method is from the revised ForegroundDownloadManager that
         //    uses the consistent naming (e.g., "code-videoId.mp4").
         if ForegroundDownloadManager.shared.doesLocalFileExist(videoId: videoId) {
+            print("Playing from local")
             // Actually get the local file URL
             let localURL = ForegroundDownloadManager.shared.localFileURL(videoId: videoId)
             currentlyUsingLocal = true
             setupPlayerForLocalFile(localURL, fallbackToRemote: true)
         } else {
+            print("Playing from remote")
             // 2) Otherwise, fallback to remote
             currentlyUsingLocal = false
             setupPlayerForRemote(remoteURL)

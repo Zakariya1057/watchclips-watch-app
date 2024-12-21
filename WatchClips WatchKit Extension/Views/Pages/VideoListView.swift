@@ -314,7 +314,7 @@ struct VideoListView: View {
             }
             
             do {
-                let fetchedVideos = try await cachedVideosService.fetchVideos(forCode: code, useCache: false)
+                let fetchedVideos = try await cachedVideosService.fetchVideos(forCode: code, useCache: true)
                 await MainActor.run {
                     videos = fetchedVideos
                     isOffline = false
@@ -349,6 +349,7 @@ struct VideoListView: View {
         }
 
         Task.detached {
+            await downloadStore.clearAllDownloads()
             VideoDownloadManager.shared.deleteAllSavedVideos()
         }
 

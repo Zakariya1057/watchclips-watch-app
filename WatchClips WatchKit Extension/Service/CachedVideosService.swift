@@ -29,6 +29,7 @@ struct CachedVideosService {
                     print("[CachedVideosService] Remote fetch failed. Using cached.")
                 }
             }
+            
             return cachedResult
         } else {
             // 3) If no valid cache, fetch from the server directly
