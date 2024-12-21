@@ -9,6 +9,8 @@ import SwiftUI
 
 struct VideoRow: View {
     let video: Video
+    let isDownloaded: Bool
+    
     private let placeholderImageURL = "https://craftsnippets.com/articles_images/placeholder/placeholder.jpg"
     
     var body: some View {
@@ -29,13 +31,24 @@ struct VideoRow: View {
                     .foregroundColor(.primary)
                     .lineLimit(3)
                 
-                if let duration = video.duration {
-                    Text("⏱ Duration: \(formattedDuration(duration))")
+                // Show a green "Downloaded" label if fully downloaded
+                if isDownloaded {
+                    Text("💾  Downloaded")
+                        .font(.subheadline)
+                        .foregroundColor(.green)
+                } else {
+                    Text("🌐  Streaming")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
                 
-                Text("📅 Uploaded: \(formattedDate(video.createdAt))")
+                if let duration = video.duration {
+                    Text("⏱  Duration: \(formattedDuration(duration))")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                
+                Text("📅  Uploaded: \(formattedDate(video.createdAt))")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }

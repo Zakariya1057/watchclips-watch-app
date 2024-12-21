@@ -45,14 +45,14 @@ class DownloadsViewModel: ObservableObject {
 
     // MARK: - Server
     
-    func loadServerVideos(forCode code: String) async {
+    func loadServerVideos(forCode code: String, useCache: Bool = true) async {
         isLoading = true
         defer { isLoading = false }
 
         print("[DownloadsViewModel] Attempting to fetch videos from server for code: \(code).")
         
         do {
-            let fetched = try await cachedVideosService.fetchVideos(forCode: code, useCache: true)
+            let fetched = try await cachedVideosService.fetchVideos(forCode: code, useCache: useCache)
             print("[DownloadsViewModel] Fetched \(fetched.count) videos from server.")
             
             var newList: [DownloadedVideo] = []
@@ -161,6 +161,8 @@ class DownloadsViewModel: ObservableObject {
                 print("[DownloadsViewModel] [ERROR] Could not build remote URL for \(item.id). Skipping resume.")
                 continue
             }
+            // If partial data or an active task exists, you could call resumeDownload again, e.g.:
+            // bgManager.resumeDownload(videoId: item.id, from: remoteURL)
         }
     }
 

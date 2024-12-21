@@ -27,3 +27,15 @@ class DownloadsStore {
         }
     }
 }
+
+extension DownloadsStore {
+    /// Returns true if the stored item for `videoId` is found with a .completed downloadStatus
+    func isDownloaded(videoId: String) -> Bool {
+        let allDownloads = loadDownloads()
+        guard let item = allDownloads.first(where: { $0.id == videoId }) else {
+            return false
+        }
+        return item.downloadStatus == .completed
+    }
+}
+

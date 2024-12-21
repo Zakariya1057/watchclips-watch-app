@@ -19,6 +19,8 @@ struct VideoListView: View {
     @State private var showProcessingAlert = false
     @State private var selectedVideo: Video? // Now used as an item for fullScreenCover
     
+    var downloadStore: DownloadsStore = DownloadsStore()
+    
     private var videosService: VideosService {
         VideosService(client: supabase)
     }
@@ -198,7 +200,7 @@ struct VideoListView: View {
 
             // Ensure Video is Identifiable and provide a stable id
             ForEach(videos) { video in
-                VideoRow(video: video)
+                VideoRow(video: video, isDownloaded: downloadStore.isDownloaded(videoId: video.id))
                     .contentShape(Rectangle())
                     .onTapGesture {
                         if (video.status == .postProcessingSuccess) {
@@ -312,7 +314,7 @@ struct VideoListView: View {
             }
             
             do {
-                let fetchedVideos = try await cachedVideosService.fetchVideos(forCode: code, useCache: true)
+                let fetchedVideos = try await cachedVideosService.fetchVideos(forCode: code, useCache: false)
                 await MainActor.run {
                     videos = fetchedVideos
                     isOffline = false

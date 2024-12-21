@@ -6,6 +6,7 @@
 //  Reverted to a straightforward foreground download without snapshotting.
 //  Partial data only saved upon explicit user pause.
 //
+
 import Foundation
 
 /// Delegate to receive progress & completion events
@@ -26,8 +27,8 @@ class ForegroundDownloadManager: NSObject, URLSessionDownloadDelegate {
     /// Foreground URLSession with moderate timeouts (customize as needed).
     private lazy var urlSession: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 60     // e.g. 60s
-        config.timeoutIntervalForResource = 300   // e.g. 5 minutes
+        config.timeoutIntervalForRequest = 100
+        config.timeoutIntervalForResource = 2000
         return URLSession(configuration: config, delegate: self, delegateQueue: nil)
     }()
     

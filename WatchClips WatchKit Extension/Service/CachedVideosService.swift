@@ -14,26 +14,30 @@ struct CachedVideosService {
     
     /// Tries to load videos from cache first. If none in cache or force refresh is needed, fetches from remote.
     func fetchVideos(forCode code: String, useCache: Bool = true) async throws -> [Video] {
-        if useCache, let cached = loadFromCache() {
-            // Return cached videos immediately for faster showing results
-            // Also attempt a remote refresh in the background to update cache.
+        // 1) Try loading from local cache first
+        if useCache, let cached = loadCachedVideos(), !cached.isEmpty {
+            // Return cached immediately
+            let cachedResult = cached
+
+            // 2) Attempt a remote refresh in the background
             Task {
                 do {
                     let fresh = try await videosService.fetchVideos(forCode: code)
                     saveToCache(videos: fresh)
                 } catch {
-                    // If remote fetch fails, we stay offline with cached data.
+                    // If remote fetch fails, we stay with the cached data
+                    print("[CachedVideosService] Remote fetch failed. Using cached.")
                 }
             }
-            return cached
+            return cachedResult
         } else {
-            // Fetch from remote and update the cache
+            // 3) If no valid cache, fetch from the server directly
             let fresh = try await videosService.fetchVideos(forCode: code)
             saveToCache(videos: fresh)
             return fresh
         }
     }
-    
+
     /// Forces a refresh from remote, ignoring the cache. Throws error if offline.
     func refreshVideos(forCode code: String) async throws -> [Video] {
         let fresh = try await videosService.fetchVideos(forCode: code)
