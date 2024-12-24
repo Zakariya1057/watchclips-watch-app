@@ -8,8 +8,18 @@
 import SwiftUI
 import CryptoKit
 
-fileprivate struct ImageCache {
-    static let inMemoryCache = NSCache<NSURL, UIImage>()
+fileprivate actor ImageMemoryCache {
+    static let shared = ImageMemoryCache()
+
+    private var cache = NSCache<NSURL, UIImage>()
+
+    func image(for url: URL) -> UIImage? {
+        cache.object(forKey: url as NSURL)
+    }
+
+    func setImage(_ image: UIImage, for url: URL) {
+        cache.setObject(image, forKey: url as NSURL)
+    }
 }
 
 struct CachedAsyncImage<Content: View>: View {
@@ -17,6 +27,7 @@ struct CachedAsyncImage<Content: View>: View {
     private let content: (Image) -> Content
 
     @State private var uiImage: UIImage?
+    @State private var isLoading = false
     @State private var attempts = 0
     private let maxRetries = 3
 
@@ -29,137 +40,143 @@ struct CachedAsyncImage<Content: View>: View {
         Group {
             if let uiImage = uiImage {
                 content(Image(uiImage: uiImage))
+                    .frame(height: 150)
             } else {
+                // Placeholder
                 Rectangle()
                     .fill(Color.gray.opacity(0.3))
                     .frame(height: 150)
-                    .onAppear {
-                        loadInitialImage()
+                    .task {
+                        await loadImageIfNeeded()
                     }
             }
         }
     }
 
-    /// Loads the initial image from cache sources (memory, disk, URLCache).
-    /// If found, display it immediately and then do a background fetch to refresh it.
-    /// If not found, attempt a direct network fetch.
-    private func loadInitialImage() {
-        // 1. Check In-Memory Cache
-        if let cachedImage = ImageCache.inMemoryCache.object(forKey: url as NSURL) {
-            self.uiImage = cachedImage
-            backgroundRefresh() // Refresh in the background
+    // MARK: - Image Loading
+
+    /// Loads the image if not already loaded.
+    private func loadImageIfNeeded() async {
+        guard !isLoading else { return }
+        isLoading = true
+
+        // 1. Check In-Memory Cache (Actor-protected)
+        if let cached = await ImageMemoryCache.shared.image(for: url) {
+            uiImage = cached
+            isLoading = false
             return
         }
 
-        // 2. Check Disk Storage
-        if let diskImage = loadFromDisk() {
-            ImageCache.inMemoryCache.setObject(diskImage, forKey: url as NSURL)
-            self.uiImage = diskImage
-            backgroundRefresh() // Refresh in the background
+        // 2. Check Disk Storage (Off Main Thread)
+        if let diskImage = await loadFromDisk() {
+            // Put in memory cache
+            await ImageMemoryCache.shared.setImage(diskImage, for: url)
+            uiImage = diskImage
+            isLoading = false
             return
         }
 
-        // 3. Check URLCache
+        // 3. Check URLCache (system’s cache)
+        if let image = await loadFromURLCache() {
+            await ImageMemoryCache.shared.setImage(image, for: url)
+            uiImage = image
+            isLoading = false
+            return
+        }
+
+        // 4. Fallback: Fetch From Network
+        let success = await fetchImageFromNetwork()
+        if !success, attempts < maxRetries {
+            attempts += 1
+            // Delay before retry
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            isLoading = false
+            await loadImageIfNeeded()
+        } else {
+            isLoading = false
+        }
+    }
+
+    /// Attempt to load the image from system's `URLCache` for the given `url`.
+    @MainActor
+    private func loadFromURLCache() async -> UIImage? {
         let request = URLRequest(url: url)
         if let cachedResponse = URLCache.shared.cachedResponse(for: request),
            let image = UIImage(data: cachedResponse.data) {
-            ImageCache.inMemoryCache.setObject(image, forKey: url as NSURL)
-            self.uiImage = image
-            backgroundRefresh() // Refresh in the background
-            return
+            return image
         }
-
-        // 4. No cached image found, fetch from network directly
-        fetchImageFromNetwork(updateUI: true) { success in
-            if success {
-                // If fetched successfully, we have the latest image now.
-            } else {
-                // If failed, handle retries or just show placeholder
-                DispatchQueue.main.async {
-                    self.attempts += 1
-                    if self.attempts <= self.maxRetries {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                            self.loadInitialImage()
-                        }
-                    }
-                }
-            }
-        }
+        return nil
     }
 
-    /// Performs a background refresh to always keep the image up-to-date.
-    /// This will fetch from the network and if a newer image is available,
-    /// update the cache and UI.
-    private func backgroundRefresh() {
-        fetchImageFromNetwork(updateUI: false) { success in
-            // If success and different image is fetched, UI will update automatically
-            // If same image is fetched, no update needed
-        }
-    }
-
-    /// Fetches the image from the network. If `updateUI` is true, it will
-    /// update the displayed image immediately. If false, it will only update
-    /// the UI if the newly fetched image differs from the currently displayed one.
-    private func fetchImageFromNetwork(updateUI: Bool, completion: @escaping (Bool) -> Void) {
+    /// Fetch the image from network. Updates UI on success.
+    @MainActor
+    private func fetchImageFromNetwork() async -> Bool {
         let request = URLRequest(url: url)
-        URLSession.shared.dataTask(with: request) { data, response, _ in
-            guard let data = data, let response = response, let newImage = UIImage(data: data) else {
-                completion(false)
-                return
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let response = response as? HTTPURLResponse, response.statusCode == 200 else {
+                return false
             }
 
-            DispatchQueue.main.async {
-                // Check if we already have an image displayed
-                let currentData = self.uiImage?.pngData() ?? Data()
-                let newData = data
-
-                // Cache in URLCache
-                let cachedData = CachedURLResponse(response: response, data: data)
-                URLCache.shared.storeCachedResponse(cachedData, for: request)
-
-                // Cache in in-memory NSCache
-                ImageCache.inMemoryCache.setObject(newImage, forKey: self.url as NSURL)
-
-                // Save to disk for persistence
-                self.saveToDisk(image: newImage)
-
-                if updateUI {
-                    // Always update UI if we requested it
-                    self.uiImage = newImage
-                    completion(true)
-                } else {
-                    // Update UI only if the new image is different
-                    if newData != currentData {
-                        self.uiImage = newImage
-                    }
-                    completion(true)
-                }
+            // Decode image off-main
+            guard let newImage = await decodeImageData(data) else {
+                return false
             }
-        }.resume()
+
+            // Cache in URLCache
+            let cachedData = CachedURLResponse(response: response, data: data)
+            URLCache.shared.storeCachedResponse(cachedData, for: request)
+
+            // Cache in memory
+            await ImageMemoryCache.shared.setImage(newImage, for: url)
+
+            // Save to disk (off-main)
+            Task.detached {
+                await saveToDisk(image: newImage, url: url)
+            }
+
+            // Update UI
+            uiImage = newImage
+            return true
+        } catch {
+            return false
+        }
     }
 
     // MARK: - Disk Storage
 
-    private func loadFromDisk() -> UIImage? {
-        let fileURL = imageFileURL(for: url)
-        guard FileManager.default.fileExists(atPath: fileURL.path),
-              let data = try? Data(contentsOf: fileURL),
-              let image = UIImage(data: data) else {
-            return nil
+    /// Reads the image from disk on a background thread.
+    private func loadFromDisk() async -> UIImage? {
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                let fileURL = imageFileURL(for: url)
+                guard FileManager.default.fileExists(atPath: fileURL.path),
+                      let data = try? Data(contentsOf: fileURL),
+                      let image = UIImage(data: data)
+                else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                continuation.resume(returning: image)
+            }
         }
-        return image
     }
 
-    private func saveToDisk(image: UIImage) {
+    /// Saves the image to disk on a background thread.
+    private func saveToDisk(image: UIImage, url: URL) async {
         let fileURL = imageFileURL(for: url)
         // Convert image to data (JPEG or PNG)
-        if let data = image.jpegData(compressionQuality: 0.9) ?? image.pngData() {
+        guard let data = image.jpegData(compressionQuality: 0.9)
+            ?? image.pngData() else { return }
+
+        DispatchQueue.global(qos: .utility).async {
             try? data.write(to: fileURL, options: [.atomic])
         }
     }
 
+    /// Computes a hashed file name for storing the image to disk.
     private func imageFileURL(for url: URL) -> URL {
-        // Create a filename unique to this URL by hashing it
         let hashedName = sha256(url.absoluteString) + ".imgcache"
         let cachesURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
         return cachesURL.appendingPathComponent(hashedName)
@@ -169,5 +186,17 @@ struct CachedAsyncImage<Content: View>: View {
         let inputData = Data(string.utf8)
         let hashed = SHA256.hash(data: inputData)
         return hashed.map { String(format: "%02x", $0) }.joined()
+    }
+
+    // MARK: - Image Decoding
+
+    /// Decodes image data off-main to avoid blocking the main thread.
+    private func decodeImageData(_ data: Data) async -> UIImage? {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                let decoded = UIImage(data: data)
+                continuation.resume(returning: decoded)
+            }
+        }
     }
 }

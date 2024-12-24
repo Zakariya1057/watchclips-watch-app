@@ -39,38 +39,30 @@ struct DownloadList: View {
                 // 2) Actual list of downloads
                 List {
                     ForEach(viewModel.videos) { item in
-                        // Wrap the entire row in a Button so we get highlight feedback
-                        Button {
-                            // Handle row tap:
-                            // If fully downloaded, present player
-                            if item.downloadStatus == .completed {
-                                selectedVideo = item.video
-                            }
-                            // If not ready, show alert
-                            else if item.video.status != .postProcessingSuccess {
+                        DownloadRow(
+                            video: item,
+                            progress: viewModel.progress(for: item),
+                            isFullyDownloaded: viewModel.isFullyDownloaded(item),
+                            startOrResumeAction: {
+                                viewModel.startOrResumeDownload(item)
+                            },
+                            pauseAction: {
+                                viewModel.pauseDownload(item)
+                            },
+                            deleteAction: {
+                                viewModel.deleteVideo(item)
+                            },
+                            onProcessingNeeded: {
                                 showProcessingAlert = true
                             }
-                            // Otherwise, user can press sub-buttons (Pause / Download)
-                            // so we do nothing here in that scenario.
-                        } label: {
-                            // The row content
-                            DownloadRow(
-                                video: item,
-                                progress: viewModel.progress(for: item),
-                                isFullyDownloaded: viewModel.isFullyDownloaded(item),
-                                startOrResumeAction: {
-                                    viewModel.startOrResumeDownload(item)
-                                },
-                                pauseAction: {
-                                    viewModel.pauseDownload(item)
-                                },
-                                deleteAction: {
-                                    viewModel.deleteVideo(item)
-                                },
-                                onProcessingNeeded: {
-                                    showProcessingAlert = true
-                                }
-                            )
+                        )
+                        .contentShape(Rectangle()) // Ensures the entire row is tappable
+                        .onTapGesture {
+                            if item.downloadStatus == .completed {
+                                selectedVideo = item.video
+                            } else if item.video.status != .postProcessingSuccess {
+                                showProcessingAlert = true
+                            }
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
@@ -79,9 +71,18 @@ struct DownloadList: View {
                                 Label("Delete", systemImage: "trash")
                             }
                         }
-                        // Use a "plain" style so it doesn't look like a default button.
-                        .buttonStyle(.plain)
                     }
+                }
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: {
+                    Task {
+                        await viewModel.loadServerVideos(forCode: code, useCache: false)
+                    }
+                }) {
+                    Image(systemName: "arrow.clockwise")
                 }
             }
         }

@@ -66,45 +66,54 @@ struct DownloadRow: View {
                             .foregroundColor(.red)
                     }
 
-                    // Secondary action buttons
-                    Group {
-                        switch video.downloadStatus {
-                        case .completed:
-                            EmptyView()
+                    if video.video.status != .postProcessingSuccess {
+                        Button("Processing...") {}
+                        .disabled(true)
+                        .buttonStyle(.borderedProminent)
+                        .frame(maxWidth: .infinity)
+                    } else {
+                        // Secondary action buttons
+                        Group {
+                            switch video.downloadStatus {
+                            case .completed:
+                                EmptyView()
 
-                        case .downloading:
-                            // Pause
-                            Button("Pause") {
-                                pauseAction()
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .frame(maxWidth: .infinity)
-
-                        case .error, .paused, .notStarted:
-                            if !isFullyDownloaded {
-                                Button("Download") {
-                                    if video.video.status == .postProcessingSuccess {
-                                        startOrResumeAction()
-                                    } else {
-                                        onProcessingNeeded()
-                                    }
+                            case .downloading:
+                                // Pause
+                                Button("Pause") {
+                                    pauseAction()
                                 }
                                 .buttonStyle(.borderedProminent)
                                 .frame(maxWidth: .infinity)
+
+                            case .error, .paused, .notStarted:
+                                if !isFullyDownloaded {
+                                    Button("Download") {
+                                        if video.video.status == .postProcessingSuccess {
+                                            startOrResumeAction()
+                                        } else {
+                                            onProcessingNeeded()
+                                        }
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .frame(maxWidth: .infinity)
+                                }
                             }
                         }
+                        .padding(.vertical, 5)
                     }
-                    .padding(.vertical, 5)
+
                 }
 
                 Spacer()
 
                 // If fully downloaded, show checkmark + total size
-                VStack {
+                VStack(alignment: .trailing) {
                     if video.downloadStatus == .completed {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(.green)
                             .font(.system(size: 20))
+                            .padding(.trailing, 5)
 
                         Spacer()
 

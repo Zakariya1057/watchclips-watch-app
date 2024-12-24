@@ -52,6 +52,17 @@ struct CachedVideosService {
         cached.removeAll { $0.id == id }
         saveToCache(videos: cached)
     }
+    
+    /// Deletes all cached videos by removing the cache file
+    func clearCache() {
+        guard let url = cacheURL() else { return }
+        do {
+            try FileManager.default.removeItem(at: url)
+            print("[CachedVideosService] Cache cleared.")
+        } catch {
+            print("Failed to remove cache file: \(error)")
+        }
+    }
 
     // MARK: - Caching Logic
     private func cacheURL() -> URL? {

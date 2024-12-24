@@ -15,6 +15,7 @@
 		365ACBFC2D16D7100078A6A4 /* SingleStreamDownloadDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365ACBFB2D16D7100078A6A4 /* SingleStreamDownloadDelegate.swift */; };
 		365ACBFE2D16F6C80078A6A4 /* DownloadManagerDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365ACBFD2D16F6C80078A6A4 /* DownloadManagerDelegate.swift */; };
 		365ACC002D1738510078A6A4 /* DownloadRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365ACBFF2D1738510078A6A4 /* DownloadRow.swift */; };
+		36918DBD2D1B3FC7008FB158 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36918DBC2D1B3FC7008FB158 /* NotificationManager.swift */; };
 		36D977972D14C63500A8C717 /* WatchClipsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D977942D14C63500A8C717 /* WatchClipsApp.swift */; };
 		36D977982D14C63500A8C717 /* MediaData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D9777A2D14C63500A8C717 /* MediaData.swift */; };
 		36D977992D14C63500A8C717 /* ResumeCapableDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D977802D14C63500A8C717 /* ResumeCapableDownloader.swift */; };
@@ -95,6 +96,7 @@
 		365ACBFB2D16D7100078A6A4 /* SingleStreamDownloadDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleStreamDownloadDelegate.swift; sourceTree = "<group>"; };
 		365ACBFD2D16F6C80078A6A4 /* DownloadManagerDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManagerDelegate.swift; sourceTree = "<group>"; };
 		365ACBFF2D1738510078A6A4 /* DownloadRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadRow.swift; sourceTree = "<group>"; };
+		36918DBC2D1B3FC7008FB158 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		36D977792D14C63500A8C717 /* Code.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Code.swift; sourceTree = "<group>"; };
 		36D9777A2D14C63500A8C717 /* MediaData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaData.swift; sourceTree = "<group>"; };
 		36D9777B2D14C63500A8C717 /* Video.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Video.swift; sourceTree = "<group>"; };
@@ -181,6 +183,7 @@
 		36D977852D14C63500A8C717 /* Service */ = {
 			isa = PBXGroup;
 			children = (
+				36918DBC2D1B3FC7008FB158 /* NotificationManager.swift */,
 				36D9778A2D14C63500A8C717 /* NetworkMonitor.swift */,
 				36D9777F2D14C63500A8C717 /* VideoDownloadManager.swift */,
 				365ACBF22D16CA6B0078A6A4 /* DownloadsStore.swift */,
@@ -407,6 +410,7 @@
 				36D9779A2D14C63500A8C717 /* NetworkMonitor.swift in Sources */,
 				365ACBEB2D16BD540078A6A4 /* DownloadedVideo.swift in Sources */,
 				36D9779B2D14C63500A8C717 /* Supabase.swift in Sources */,
+				36918DBD2D1B3FC7008FB158 /* NotificationManager.swift in Sources */,
 				365ACBF92D16D5FC0078A6A4 /* PartialDownloadStore.swift in Sources */,
 				36D9779D2D14C63500A8C717 /* VideoRow.swift in Sources */,
 				36D9779E2D14C63500A8C717 /* CachedVideosService.swift in Sources */,
@@ -573,7 +577,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.5;
 				PRODUCT_BUNDLE_IDENTIFIER = app.watchclips.watch.watchkitapp.watchkitextension;
 				PRODUCT_NAME = "${TARGET_NAME}";
 				SDKROOT = watchos;
@@ -599,7 +603,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.5;
 				PRODUCT_BUNDLE_IDENTIFIER = app.watchclips.watch.watchkitapp.watchkitextension;
 				PRODUCT_NAME = "${TARGET_NAME}";
 				SDKROOT = watchos;
@@ -621,7 +625,7 @@
 				DEVELOPMENT_TEAM = 5FCM3X5N8A;
 				IBSC_MODULE = WatchClips_WatchKit_Extension;
 				INFOPLIST_FILE = "WatchClips WatchKit App/Info.plist";
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.5;
 				PRODUCT_BUNDLE_IDENTIFIER = app.watchclips.watch.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -643,7 +647,7 @@
 				DEVELOPMENT_TEAM = 5FCM3X5N8A;
 				IBSC_MODULE = WatchClips_WatchKit_Extension;
 				INFOPLIST_FILE = "WatchClips WatchKit App/Info.plist";
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.5;
 				PRODUCT_BUNDLE_IDENTIFIER = app.watchclips.watch.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -660,7 +664,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5FCM3X5N8A;
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.5;
 				PRODUCT_BUNDLE_IDENTIFIER = app.watchclips.watch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
@@ -673,7 +677,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5FCM3X5N8A;
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.5;
 				PRODUCT_BUNDLE_IDENTIFIER = app.watchclips.watch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;

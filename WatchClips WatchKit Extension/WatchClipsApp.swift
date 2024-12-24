@@ -1,5 +1,5 @@
 //
-//  WatchClipsApp.swift
+//  MyWatchApp.swift
 //  WatchClips Watch App
 //
 //  Created by Zakariya Hassan on 19/12/2024.

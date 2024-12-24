@@ -34,7 +34,7 @@ struct CodesService {
 }
 
 struct LoginView: View {
-    @State private var code = "959513"
+    @State private var code = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
     @AppStorage("loggedInCode") private var loggedInCode: String = ""

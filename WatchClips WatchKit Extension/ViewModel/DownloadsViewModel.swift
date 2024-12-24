@@ -1,4 +1,3 @@
-//
 //  DownloadsViewModel.swift
 //  Example
 //
@@ -7,7 +6,6 @@
 
 import SwiftUI
 
-/// The main observable view-model for downloads
 @MainActor
 class DownloadsViewModel: ObservableObject {
     @Published var videos: [DownloadedVideo] = []
@@ -17,15 +15,12 @@ class DownloadsViewModel: ObservableObject {
     private let cachedVideosService: CachedVideosService
     private let store = DownloadsStore()
     
-    /// Use the ForegroundDownloadManager
+    /// The ForegroundDownloadManager handles the actual downloads.
     private let bgManager = ForegroundDownloadManager.shared
 
     init(cachedVideosService: CachedVideosService) {
         self.cachedVideosService = cachedVideosService
-        
-        // Become the delegate for the download manager
-        bgManager.delegate = self
-        
+        bgManager.delegate = self // Become the delegate
         print("[DownloadsViewModel] Initialized with CachedVideosService.")
     }
 
@@ -95,7 +90,6 @@ class DownloadsViewModel: ObservableObject {
     // MARK: - Start / Resume / Pause / Delete
     
     func startOrResumeDownload(_ item: DownloadedVideo) {
-        // If this item is already in progress or completed, skip
         guard item.downloadStatus != .downloading && item.downloadStatus != .completed else {
             print("[DownloadsViewModel] \(item.id) is already downloading or completed.")
             return
@@ -108,7 +102,7 @@ class DownloadsViewModel: ObservableObject {
 
         print("[DownloadsViewModel] Initiating startOrResumeDownload for videoId: \(item.id).")
         
-        // Switch the current item to "downloading"
+        // Switch to "downloading"
         updateStatus(item.id, status: .downloading, errorMessage: nil)
         
         // Resume or start a fresh download via the manager
@@ -139,20 +133,16 @@ class DownloadsViewModel: ObservableObject {
         persist()
     }
 
-    /// Resume any item that was last known "downloading" (e.g. if the app was killed),
-    /// but only if we actually have partial data or an active task.
+    /// Resume any item that was last known "downloading" (e.g. if the app was killed).
     func resumeInProgressDownloads() {
         print("[DownloadsViewModel] Attempting to resume in-progress downloads...")
         for item in videos where item.downloadStatus == .downloading {
-            // 1) Check if the manager still has partial data or an active task
             let hasResumeData = bgManager.hasResumeData(for: item.id)
             let isActive = bgManager.isTaskActive(videoId: item.id)
             
-            // If there's neither partial data nor an active task, we do *not* forcibly restart
-            // Instead, we can set it to .error or .paused or .notStarted. Choose your logic:
             if !hasResumeData && !isActive {
+                // Not truly in-progress, revert to paused or error
                 print("[DownloadsViewModel] No partial data or active task for \(item.id). Not restarting.")
-                // Option: update status to .paused or .error to reflect no real in-progress
                 updateStatus(item.id, status: .paused, errorMessage: nil)
                 continue
             }
@@ -161,7 +151,7 @@ class DownloadsViewModel: ObservableObject {
                 print("[DownloadsViewModel] [ERROR] Could not build remote URL for \(item.id). Skipping resume.")
                 continue
             }
-            // If partial data or an active task exists, you could call resumeDownload again, e.g.:
+            // If partial data or an active task exists, you could resumeDownload again, e.g.:
             // bgManager.resumeDownload(videoId: item.id, from: remoteURL)
         }
     }
@@ -202,6 +192,7 @@ class DownloadsViewModel: ObservableObject {
     }
 
     private func buildRemoteURL(_ v: Video) -> URL? {
+        // Example base URL - adjust to your real one
         guard let base = URL(string: "https://dwxvsu8u3eeuu.cloudfront.net") else {
             print("[DownloadsViewModel] [ERROR] Invalid base URL string.")
             return nil
@@ -216,6 +207,7 @@ class DownloadsViewModel: ObservableObject {
 // MARK: - Conform to DownloadManagerDelegate
 
 extension DownloadsViewModel: DownloadManagerDelegate {
+    /// Called when a download has updated progress.
     func downloadDidUpdateProgress(videoId: String, receivedBytes: Int64, totalBytes: Int64) {
         Task { @MainActor in
             print("[DownloadsViewModel] Progress update for \(videoId): \(receivedBytes)/\(totalBytes)")
@@ -226,13 +218,32 @@ extension DownloadsViewModel: DownloadManagerDelegate {
         }
     }
 
+    /// Called when a download completes successfully.
     func downloadDidComplete(videoId: String, localFileURL: URL?) {
         Task { @MainActor in
             print("[DownloadsViewModel] Download complete for \(videoId). Local file: \(localFileURL?.lastPathComponent ?? "nil")")
             updateStatus(videoId, status: .completed)
+            
+            // Find the corresponding video so we can get its title
+            guard let item = videos.first(where: { $0.id == videoId }) else {
+                print("[DownloadsViewModel] Could not find item for videoId: \(videoId)")
+                return
+            }
+            
+            // Use the video's actual title for the notification
+            let videoTitle = item.video.title ?? ""  // e.g., "My Great Video"
+            
+            // **Notify the user of completion** via a local notification:
+            NotificationManager.shared.scheduleLocalNotification(
+                title: videoTitle,
+                body: "Download is complete! Your video is ready to watch."
+            ) { success in
+                print("[DownloadsViewModel] Notification scheduled? \(success)")
+            }
         }
     }
 
+    /// Called when a download fails with an error.
     func downloadDidFail(videoId: String, error: Error) {
         print("[DownloadsViewModel] [ERROR] Download failed for \(videoId). Error: \(error.localizedDescription)")
         Task { @MainActor in
