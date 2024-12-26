@@ -374,6 +374,7 @@ struct VideoListView: View {
         Task.detached {
             await downloadStore.clearAllDownloads()
             await cachedVideosService.clearCache()
+            PlaybackProgressService.shared.clearAllProgress()
             VideoDownloadManager.shared.deleteAllSavedVideos()
         }
     }

@@ -1,6 +1,7 @@
 import SwiftUI
 import AVKit
 import AVFoundation
+import MediaPlayer
 
 struct VideoPlayerView: View {
     @State var remoteURL: URL
@@ -21,8 +22,9 @@ struct VideoPlayerView: View {
     @State private var currentlyUsingLocal = false
     @State private var didStartSetup = false
     
-    @State private var scale: CGFloat = 1.0
-    
+    // For saving and resuming
+    @State private var timeObserverToken: Any?
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     
@@ -51,24 +53,30 @@ struct VideoPlayerView: View {
             
             // Loading overlay
             if isLoading && downloadError == nil {
-                Color.black.opacity(0.8)
-                    .ignoresSafeArea()
-                    .zIndex(3)
-                ProgressView()
-                    .foregroundColor(.white)
-                    .scaleEffect(2.0)
-                    .zIndex(3)
+                ZStack {
+                    Color.black
+                        .opacity(0.8)
+                        .ignoresSafeArea()
+                    
+                    VStack(spacing: 16) {
+                        if !currentlyUsingLocal {
+                            Text("Tip:\nDownload for faster playback.")
+                                .font(.headline)
+                                .multilineTextAlignment(.center)
+                                .lineLimit(3)
+                                .frame(maxWidth: .infinity)
+                        }
+                        ProgressView()
+                            .scaleEffect(2.0)
+                            .frame(width: .infinity, height: 30)
+                    }
+                }
+                .zIndex(3)
             }
             
             // The AVPlayer-based VideoPlayer
             if let player = player {
                 VideoPlayer(player: player)
-                    .scaleEffect(scale)
-                    .onTapGesture(count: 2) {
-                        withAnimation {
-                            scale = (scale == 1.0) ? 2.0 : 1.0
-                        }
-                    }
                     .onAppear {
                         if isPlaying {
                             player.play()
@@ -82,7 +90,7 @@ struct VideoPlayerView: View {
                     }
                     .zIndex(2)
             }
-
+            
             // Error overlay
             if let error = downloadError {
                 Color.black.opacity(0.4)
@@ -95,7 +103,7 @@ struct VideoPlayerView: View {
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
-
+                    
                     Button("Retry") {
                         downloadError = nil
                         prepareToPlay()
@@ -123,8 +131,24 @@ struct VideoPlayerView: View {
             }
         }
         .onDisappear {
-            // Cleanup
             statusObservation = nil
+            
+            // Save final position one more time
+            if let player = player {
+                let currentTime = player.currentTime().seconds
+                PlaybackProgressService.shared.setProgress(currentTime, for: videoId)
+            }
+
+            // Remove the time observer
+            if let observerToken = timeObserverToken {
+                player?.removeTimeObserver(observerToken)
+                timeObserverToken = nil
+            }
+
+            // Pause
+            wasPlayingBeforeSwitch = isPlaying
+            player?.pause()
+            dismiss()
         }
         .onChange(of: scenePhase) { newPhase in
             switch newPhase {
@@ -140,7 +164,7 @@ struct VideoPlayerView: View {
             case .inactive, .background:
                 // Save state, pause
                 wasPlayingBeforeSwitch = isPlaying
-                player?.pause()
+//                player?.pause()
             @unknown default:
                 break
             }
@@ -153,20 +177,18 @@ struct VideoPlayerView: View {
         guard downloadError == nil else { return }
 
         // 1) Check if there's a local .mp4 file for this (code, videoId).
-        //    This method is from the revised ForegroundDownloadManager that
-        //    uses the consistent naming (e.g., "code-videoId.mp4").
-        if ForegroundDownloadManager.shared.doesLocalFileExist(videoId: videoId) {
+        if SegmentedDownloadManager.shared.doesLocalFileExist(videoId: videoId) {
             print("Playing from local")
-            // Actually get the local file URL
-            let localURL = ForegroundDownloadManager.shared.localFileURL(videoId: videoId)
+            let localURL = SegmentedDownloadManager.shared.localFileURL(videoId: videoId)
             currentlyUsingLocal = true
             setupPlayerForLocalFile(localURL, fallbackToRemote: true)
         } else {
             print("Playing from remote")
-            // 2) Otherwise, fallback to remote
             currentlyUsingLocal = false
             setupPlayerForRemote(remoteURL)
         }
+        
+        setupRemoteCommandCenter()
     }
 
     private func setupPlayerForLocalFile(_ localURL: URL, fallbackToRemote: Bool) {
@@ -179,7 +201,6 @@ struct VideoPlayerView: View {
                     let newItem = AVPlayerItem(asset: asset)
                     self.initializePlayer(with: newItem, restoreState: true)
                 } else {
-                    // If local is not playable, fallback to remote if allowed
                     self.currentlyUsingLocal = false
                     if fallbackToRemote {
                         self.setupPlayerForRemote(self.remoteURL)
@@ -198,32 +219,42 @@ struct VideoPlayerView: View {
     }
 
     private func initializePlayer(with playerItem: AVPlayerItem, restoreState: Bool) {
-        // If there's an existing player, save the last playback time
+        // Save last playback time from old player if needed
         if let existingPlayer = player {
             lastPlaybackTime = existingPlayer.currentTime().seconds
             wasPlayingBeforeSwitch = isPlaying
         }
 
-        // Release any old player
         self.player = nil
 
         let newPlayer = AVPlayer(playerItem: playerItem)
         newPlayer.automaticallyWaitsToMinimizeStalling = false
         self.player = newPlayer
 
-        // Observe the AVPlayerItem's status for readiness
+        // Observe the AVPlayerItem's status
         self.playerItemStatusObservation = playerItem.observe(\.status, options: [.new]) { item, _ in
             DispatchQueue.main.async {
                 switch item.status {
                 case .readyToPlay:
                     self.isLoading = false
                     self.updatePlaybackStateIfReady()
+                    
+                    // Only resume if the total duration is over 15 minutes (900s)
+                    let totalDuration = playerItem.duration.seconds
+//                    if totalDuration > 900 {
+                        // Automatically resume from saved position if available
+                        if let savedTime = PlaybackProgressService.shared.getProgress(for: self.videoId),
+                           savedTime > 0 {
+                            self.seekTo(time: savedTime, playIfNeeded: self.isPlaying)
+                            self.player?.play()
+                        }
+//                    }
                 case .failed:
-                    // If local fails, fallback to remote if not already remote
+                    // If local fails, fallback
                     self.handlePlaybackError(
                         item.error,
                         attemptedURL: self.currentlyUsingLocal
-                            ? ForegroundDownloadManager.shared.localFileURL(videoId: self.videoId)
+                            ? SegmentedDownloadManager.shared.localFileURL(videoId: self.videoId)
                             : self.remoteURL,
                         fallbackToRemote: !self.currentlyUsingLocal
                     )
@@ -233,7 +264,7 @@ struct VideoPlayerView: View {
             }
         }
 
-        // Observe player's timeControlStatus to update isPlaying
+        // Observe player's timeControlStatus
         self.timeControlStatusObservation = newPlayer.observe(\.timeControlStatus, options: [.new]) { player, _ in
             DispatchQueue.main.async {
                 switch player.timeControlStatus {
@@ -247,12 +278,15 @@ struct VideoPlayerView: View {
             }
         }
 
-        // Restore previous seekTime, if any
-        if self.seekTime > 0 {
-            self.seekTo(time: self.seekTime, playIfNeeded: false)
+        // Add a periodic time observer to save progress every second
+        self.timeObserverToken = newPlayer.addPeriodicTimeObserver(
+            forInterval: CMTimeMake(value: 1, timescale: 1),
+            queue: .main
+        ) { time in
+            PlaybackProgressService.shared.setProgress(time.seconds, for: self.videoId)
         }
 
-        // If we had a partial session, restore that playback time + status
+        // If we had a partial session, also restore that time if needed
         if restoreState {
             self.seekTo(time: self.lastPlaybackTime, playIfNeeded: false)
             if self.wasPlayingBeforeSwitch {
@@ -266,18 +300,44 @@ struct VideoPlayerView: View {
 
     private func handlePlaybackError(_ error: Error?, attemptedURL: URL, fallbackToRemote: Bool) {
         if fallbackToRemote && attemptedURL != self.remoteURL {
-            // Switch from local to remote
             self.currentlyUsingLocal = false
             self.setupPlayerForRemote(self.remoteURL)
         } else {
-            // Just show the error
             self.downloadError = error?.localizedDescription ?? "Unknown playback error."
         }
     }
 
-    private func tearDownObservations() {
-        playerItemStatusObservation = nil
-        timeControlStatusObservation = nil
+    private func setupRemoteCommandCenter() {
+        let commandCenter = MPRemoteCommandCenter.shared()
+        
+        // Play command
+        commandCenter.playCommand.isEnabled = true
+        commandCenter.playCommand.addTarget { [self] _ in
+            self.player?.play()
+            self.isPlaying = true
+            return .success
+        }
+        
+        // Pause command
+        commandCenter.pauseCommand.isEnabled = true
+        commandCenter.pauseCommand.addTarget { [self] _ in
+            self.player?.pause()
+            self.isPlaying = false
+            return .success
+        }
+        
+        // Toggle play/pause command
+        commandCenter.togglePlayPauseCommand.isEnabled = true
+        commandCenter.togglePlayPauseCommand.addTarget { [self] _ in
+            if isPlaying {
+                player?.pause()
+                self.isPlaying = false
+            } else {
+                player?.play()
+                self.isPlaying = true
+            }
+            return .success
+        }
     }
 
     private func updatePlaybackStateIfReady() {
@@ -286,7 +346,6 @@ struct VideoPlayerView: View {
               playerItem.status == .readyToPlay else {
             return
         }
-
         if isPlaying {
             player.playImmediately(atRate: 1.0)
         } else {
@@ -297,7 +356,6 @@ struct VideoPlayerView: View {
     private func seekTo(time: Double, playIfNeeded: Bool = true) {
         guard let player = player else { return }
         let targetTime = CMTime(seconds: time, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
-
         player.seek(to: targetTime, toleranceBefore: .zero, toleranceAfter: .zero) { _ in
             if self.isPlaying && playIfNeeded {
                 player.playImmediately(atRate: 1.0)

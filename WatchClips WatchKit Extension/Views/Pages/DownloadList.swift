@@ -32,7 +32,17 @@ struct DownloadList: View {
                 if let error = viewModel.errorMessage {
                     Text("Failed or no videos: \(error)")
                 } else {
-                    Text("No Videos Found for \(code)")
+                    VStack(spacing: 16) {
+                        Text("No Videos Found")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        Text("Go on WatchClips.app and upload some videos to download here.")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 20)
                 }
             }
             else {

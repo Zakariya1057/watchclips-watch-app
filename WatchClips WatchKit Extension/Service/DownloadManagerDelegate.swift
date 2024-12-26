@@ -1,393 +1,440 @@
+//import Foundation
+//import WatchKit
 //
-//  ForegroundDownloadManager.swift
-//  Example
+//// MARK: - Models & Protocol
 //
-//  Enhanced to handle partial resume across app reboots,
-//  now also auto-pausing and resuming every 50MB.
+//struct DownloadMetadata: Codable {
+//    let videoId: String
+//    let remoteURL: String
+//}
 //
-
-import Foundation
-import UIKit
-
-struct DownloadMetadata: Codable {
-    let videoId: String
-    let remoteURL: String
-}
-
-protocol DownloadManagerDelegate: AnyObject {
-    func downloadDidUpdateProgress(videoId: String, receivedBytes: Int64, totalBytes: Int64)
-    func downloadDidComplete(videoId: String, localFileURL: URL?)
-    func downloadDidFail(videoId: String, error: Error)
-}
-
-class ForegroundDownloadManager: NSObject, URLSessionDownloadDelegate {
-    
-    static let shared = ForegroundDownloadManager()
-    private override init() {
-        super.init()
-        // On init, reload any partial tasks if you want to resume automatically
-        self.reloadIncompleteDownloads()
-    }
-    
-    // MARK: - Configuration
-    
-    private lazy var urlSession: URLSession = {
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 100
-        config.timeoutIntervalForResource = 4000
-        return URLSession(configuration: config, delegate: self, delegateQueue: nil)
-    }()
-    
-    weak var delegate: DownloadManagerDelegate?
-    
-    // MARK: - State Tracking
-    
-    /// Currently active download tasks keyed by videoId.
-    private var activeTasks: [String: URLSessionDownloadTask] = [:]
-    
-    /// Resume data stored in memory, keyed by videoId.
-    private var resumeDataByVideo: [String: Data] = [:]
-    
-    /// Stores which downloads are in progress across app launches.
-    private var metadataList: [String: DownloadMetadata] = [:] {
-        didSet { saveMetadataListToDisk() }
-    }
-    
-    // -----------------------------------
-    // AUTO-PAUSE/RESUME CHUNKING SUPPORT
-    // -----------------------------------
-    
-    /// We pause & resume every 50 MB (50,000,000 bytes) to demonstrate partial chunk downloads.
-    private let chunkSize: Int64 = 50_000_000  // 50 MB
-    
-    /// Track how many bytes were downloaded last time we paused for each videoId.
-    private var lastPausedOffsetByVideo: [String: Int64] = [:]
-
-    // MARK: - Public API (Signatures Unchanged)
-    
-    func startDownload(videoId: String, from url: URL) {
-        let videoURL = url.absoluteString
-        print("[DownloadManager] Starting new download for \(videoId), url=\(videoURL)")
-        
-        // Save metadata so we remember across reboots
-        let meta = DownloadMetadata(videoId: videoId, remoteURL: videoURL)
-        metadataList[videoId] = meta
-        
-        let task = urlSession.downloadTask(with: url)
-        activeTasks[videoId] = task
-        // Initialize the paused offset to 0 if we’re starting fresh
-        lastPausedOffsetByVideo[videoId] = 0
-        
-        task.resume()
-    }
-    
-    func cancelDownload(videoId: String) {
-        guard let task = activeTasks[videoId] else {
-            print("[DownloadManager] No active download to cancel for \(videoId).")
-            return
-        }
-        
-        task.cancel(byProducingResumeData: { [weak self] data in
-            guard let self = self else { return }
-            if let data = data {
-                self.resumeDataByVideo[videoId] = data
-                self.saveResumeDataToDisk(data, for: videoId)
-                print("[DownloadManager] Paused download for \(videoId), resume data saved.")
-            } else {
-                print("[DownloadManager] Download \(videoId) canceled, no resume data provided.")
-            }
-            self.activeTasks.removeValue(forKey: videoId)
-        })
-    }
-    
-    func resumeDownload(videoId: String, from url: URL) {
-        // 1) Check in-memory
-        if let data = resumeDataByVideo[videoId] {
-            print("[DownloadManager] Resuming \(videoId) from saved resume data (memory).")
-            let task = urlSession.downloadTask(withResumeData: data)
-            resumeDataByVideo.removeValue(forKey: videoId)
-            removeResumeDataFromDisk(for: videoId)
-            activeTasks[videoId] = task
-            task.resume()
-            return
-        }
-        
-        // 2) Check disk
-        if let diskData = loadResumeDataFromDisk(for: videoId) {
-            print("[DownloadManager] Resuming \(videoId) from saved resume data (disk).")
-            let task = urlSession.downloadTask(withResumeData: diskData)
-            removeResumeDataFromDisk(for: videoId)
-            activeTasks[videoId] = task
-            task.resume()
-            return
-        }
-        
-        // 3) Start fresh if no resume data
-        print("[DownloadManager] No resume data for \(videoId), starting fresh.")
-        startDownload(videoId: videoId, from: url)
-    }
-    
-    func hasResumeData(for videoId: String) -> Bool {
-        // memory check
-        if resumeDataByVideo[videoId] != nil { return true }
-        // disk check
-        let resumePath = resumeDataURL(for: videoId).path
-        return FileManager.default.fileExists(atPath: resumePath)
-    }
-    
-    func isTaskActive(videoId: String) -> Bool {
-        return activeTasks[videoId] != nil
-    }
-    
-    // MARK: - URLSessionDownloadDelegate
-    
-    func urlSession(_ session: URLSession,
-                    downloadTask: URLSessionDownloadTask,
-                    didWriteData bytesWritten: Int64,
-                    totalBytesWritten: Int64,
-                    totalBytesExpectedToWrite: Int64) {
-        
-        guard let videoId = findVideoId(task: downloadTask) else { return }
-        
-        let totalExpected = totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : 1
-        let progress = Double(totalBytesWritten) / Double(totalExpected) * 100
-        print("[DownloadManager] Progress for \(videoId): \(Int(progress))% (\(totalBytesWritten)/\(totalExpected))")
-        
-        // Notify delegate about progress
-        delegate?.downloadDidUpdateProgress(videoId: videoId,
-                                            receivedBytes: totalBytesWritten,
-                                            totalBytes: totalExpected)
-        
-        //-----------------------------------------
-        // AUTOMATIC PAUSE & RESUME EVERY 50MB
-        //-----------------------------------------
-        let lastPausedOffset = lastPausedOffsetByVideo[videoId] ?? 0
-        if (totalBytesWritten - lastPausedOffset) >= chunkSize {
-            // We’ve downloaded another 50 MB chunk; auto-pause and then resume.
-            print("[DownloadManager] Auto-pausing \(videoId) after ~50MB chunk...")
-            
-            // Step 1: Cancel to produce resume data
-            downloadTask.cancel(byProducingResumeData: { [weak self] data in
-                guard let self = self else { return }
-                
-                // Step 2: Save that resume data
-                if let data = data {
-                    self.resumeDataByVideo[videoId] = data
-                    self.saveResumeDataToDisk(data, for: videoId)
-                    print("[DownloadManager] Auto-pause complete, saved partial data for \(videoId).")
-                }
-                
-                // Step 3: Remove from active tasks
-                self.activeTasks.removeValue(forKey: videoId)
-                
-                // Step 4: Update the last-paused offset to current total
-                self.lastPausedOffsetByVideo[videoId] = totalBytesWritten
-                
-                // Step 5: Immediately resume
-                DispatchQueue.global().asyncAfter(deadline: .now() + 0.2) {
-                    // We have the original URL stored in metadataList
-                    if let meta = self.metadataList[videoId],
-                       let remoteURL = URL(string: meta.remoteURL) {
-                        print("[DownloadManager] Auto-resuming \(videoId) from last chunk.")
-                        self.resumeDownload(videoId: videoId, from: remoteURL)
-                    }
-                }
-            })
-        }
-    }
-    
-    func urlSession(_ session: URLSession,
-                    downloadTask: URLSessionDownloadTask,
-                    didFinishDownloadingTo location: URL) {
-        guard let videoId = findVideoId(task: downloadTask) else {
-            print("[DownloadManager] [ERROR] didFinishDownloadingTo - no matching videoId found.")
-            return
-        }
-        
-        // Move to final location
-        let finalURL = localFileURL(videoId: videoId)
-        do {
-            if FileManager.default.fileExists(atPath: finalURL.path) {
-                try FileManager.default.removeItem(at: finalURL)
-            }
-            try FileManager.default.moveItem(at: location, to: finalURL)
-            print("[DownloadManager] Moved file to \(finalURL) for \(videoId).")
-            delegate?.downloadDidComplete(videoId: videoId, localFileURL: finalURL)
-        } catch {
-            print("[DownloadManager] [ERROR] Could not move temp file for \(videoId): \(error)")
-            delegate?.downloadDidFail(videoId: videoId, error: error)
-        }
-        
-        // Cleanup
-        activeTasks.removeValue(forKey: videoId)
-        removeResumeDataFromDisk(for: videoId)
-        resumeDataByVideo.removeValue(forKey: videoId)
-        metadataList.removeValue(forKey: videoId)
-        
-        // Also clear any lastPausedOffset so future downloads start fresh
-        lastPausedOffsetByVideo.removeValue(forKey: videoId)
-    }
-    
-    func urlSession(_ session: URLSession,
-                    task: URLSessionTask,
-                    didCompleteWithError error: Error?) {
-        guard let videoId = findVideoId(task: task) else { return }
-        
-        if let e = error as NSError? {
-            // If canceled or paused, we handle in the cancel code above
-            if e.code == NSURLErrorCancelled {
-                print("[DownloadManager] \(videoId) canceled or paused (no further action).")
-            } else {
-                // Another type of failure
-                print("[DownloadManager] [ERROR] \(videoId) failed: \(e.localizedDescription)")
-                (task as? URLSessionDownloadTask)?.cancel(byProducingResumeData: { [weak self] data in
-                    guard let self = self else { return }
-                    if let data = data {
-                        self.resumeDataByVideo[videoId] = data
-                        self.saveResumeDataToDisk(data, for: videoId)
-                        print("[DownloadManager] Saved partial data for \(videoId).")
-                    } else {
-                        print("[DownloadManager] No partial data available for \(videoId).")
-                    }
-                    self.delegate?.downloadDidFail(videoId: videoId, error: e)
-                    self.activeTasks.removeValue(forKey: videoId)
-                })
-                return
-            }
-        }
-        
-        // If no error or canceled, remove from active tasks
-        activeTasks.removeValue(forKey: videoId)
-    }
-    
-    // MARK: - Internal Helpers
-    
-    private func findVideoId(task: URLSessionTask) -> String? {
-        return activeTasks.first { $0.value == task }?.key
-    }
-    
-    func localFileURL(videoId: String) -> URL {
-        let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-        return cachesDir.appendingPathComponent("\(videoId).mp4")
-    }
-    
-    func doesLocalFileExist(videoId: String) -> Bool {
-        return FileManager.default.fileExists(atPath: localFileURL(videoId: videoId).path)
-    }
-    
-    func deleteLocalFile(videoId: String) {
-        let url = localFileURL(videoId: videoId)
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            return
-        }
-        do {
-            try FileManager.default.removeItem(at: url)
-            print("[DownloadManager] Deleted local file for \(videoId).")
-        } catch {
-            print("[DownloadManager] [ERROR] Deleting file for \(videoId): \(error)")
-        }
-    }
-    
-    // MARK: - Resume Data Persistence
-    
-    private func resumeDataURL(for videoId: String) -> URL {
-        let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-        let resumeDir = cachesDir.appendingPathComponent("ResumeData", isDirectory: true)
-        if !FileManager.default.fileExists(atPath: resumeDir.path) {
-            do {
-                try FileManager.default.createDirectory(at: resumeDir, withIntermediateDirectories: true, attributes: nil)
-            } catch {
-                print("[DownloadManager] [ERROR] Could not create ResumeData directory: \(error)")
-            }
-        }
-        return resumeDir.appendingPathComponent("\(videoId).resume")
-    }
-    
-    private func saveResumeDataToDisk(_ data: Data, for videoId: String) {
-        let url = resumeDataURL(for: videoId)
-        DispatchQueue.global(qos: .background).async {
-            do {
-                try data.write(to: url, options: .atomic)
-                print("[DownloadManager] Resume data written to disk for \(videoId).")
-            } catch {
-                print("[DownloadManager] [ERROR] Writing resume data for \(videoId): \(error)")
-            }
-        }
-    }
-    
-    private func loadResumeDataFromDisk(for videoId: String) -> Data? {
-        let url = resumeDataURL(for: videoId)
-        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-        do {
-            let data = try Data(contentsOf: url)
-            print("[DownloadManager] Loaded resume data from disk for \(videoId).")
-            return data
-        } catch {
-            print("[DownloadManager] [ERROR] Reading resume data for \(videoId): \(error)")
-            return nil
-        }
-    }
-    
-    private func removeResumeDataFromDisk(for videoId: String) {
-        let url = resumeDataURL(for: videoId)
-        guard FileManager.default.fileExists(atPath: url.path) else { return }
-        do {
-            try FileManager.default.removeItem(at: url)
-            print("[DownloadManager] Removed resume data file for \(videoId).")
-        } catch {
-            print("[DownloadManager] [ERROR] Removing resume data for \(videoId): \(error)")
-        }
-    }
-    
-    // MARK: - Metadata Persistence
-    
-    private func metadataListURL() -> URL {
-        let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-        return cachesDir.appendingPathComponent("DownloadsManifest.json")
-    }
-    
-    private func saveMetadataListToDisk() {
-        do {
-            let data = try JSONEncoder().encode(Array(metadataList.values))
-            try data.write(to: metadataListURL(), options: .atomic)
-        } catch {
-            print("[DownloadManager] [ERROR] Saving metadataList: \(error)")
-        }
-    }
-    
-    private func loadMetadataListFromDisk() -> [String: DownloadMetadata] {
-        let url = metadataListURL()
-        guard FileManager.default.fileExists(atPath: url.path) else { return [:] }
-        do {
-            let data = try Data(contentsOf: url)
-            let items = try JSONDecoder().decode([DownloadMetadata].self, from: data)
-            var dict = [String: DownloadMetadata]()
-            for meta in items {
-                dict[meta.videoId] = meta
-            }
-            return dict
-        } catch {
-            print("[DownloadManager] [ERROR] Loading metadataList: \(error)")
-            return [:]
-        }
-    }
-    
-    private func reloadIncompleteDownloads() {
-        // Load from disk
-        let loaded = loadMetadataListFromDisk()
-        self.metadataList = loaded
-        
-        // If you want to automatically resume on startup, you can do so here:
-        /*
-        for (videoId, meta) in loaded {
-            if hasResumeData(for: videoId) {
-                let url = URL(string: meta.remoteURL)!
-                resumeDownload(videoId: videoId, from: url)
-            } else {
-                // or start fresh, depending on app logic
-                // startDownload(videoId: videoId, from: url)
-            }
-        }
-        */
-    }
-}
+//protocol DownloadManagerDelegate: AnyObject {
+//    func downloadDidUpdateProgress(videoId: String, receivedBytes: Int64, totalBytes: Int64)
+//    func downloadDidComplete(videoId: String, localFileURL: URL?)
+//    func downloadDidFail(videoId: String, error: Error)
+//}
+//
+//// MARK: - Segmented Download Context
+//
+///// Holds state for a single segmented download operation.
+//private class SegmentedDownloadContext {
+//    let videoId: String
+//    let remoteURL: URL
+//    let totalSize: Int64
+//    let segmentSize: Int64
+//    
+//    /// Which chunk we are currently fetching.
+//    var currentSegmentIndex: Int = 0
+//    
+//    /// Retry counts per chunk index.
+//    var segmentRetryCount: [Int: Int] = [:]
+//    
+//    init(videoId: String, remoteURL: URL, totalSize: Int64, segmentSize: Int64) {
+//        self.videoId = videoId
+//        self.remoteURL = remoteURL
+//        self.totalSize = totalSize
+//        self.segmentSize = segmentSize
+//        
+//        // Initialize retry counts to 0 for each chunk
+//        for i in 0..<totalSegments {
+//            segmentRetryCount[i] = 0
+//        }
+//    }
+//    
+//    /// How many chunks in total.
+//    var totalSegments: Int {
+//        return Int((totalSize + (segmentSize - 1)) / segmentSize)
+//    }
+//}
+//
+//// MARK: - ForegroundDownloadManager (Segmented Version)
+//
+//class ForegroundDownloadManager: NSObject {
+//    
+//    static let shared = ForegroundDownloadManager()
+//    private override init() {
+//        super.init()
+//        self.reloadIncompleteDownloads()
+//    }
+//    
+//    // MARK: - Configuration
+//    
+//    /// We'll use a plain URLSession without a download delegate; we’ll use data tasks for range requests.
+//    private lazy var urlSession: URLSession = {
+//        let config = URLSessionConfiguration.default
+//        config.timeoutIntervalForRequest = 200
+//        config.allowsExpensiveNetworkAccess = true
+//        // For watchOS, keep discretionary=false unless you really want system scheduling, etc.
+//        return URLSession(configuration: config, delegate: nil, delegateQueue: nil)
+//    }()
+//    
+//    weak var delegate: DownloadManagerDelegate?
+//    
+//    // MARK: - Manager State
+//
+//    /// Because we’re now using segmented downloads, we won’t track `URLSessionDownloadTask`s in `activeTasks`.
+//    /// Instead, we track the custom context (chunks, retries, etc.).
+//    private var activeDownloads: [String: SegmentedDownloadContext] = [:]
+//    
+//    /// Keep track of partial resume data (no longer used in chunk approach, but we leave it for reference).
+//    private var resumeDataByVideo: [String: Data] = [:]
+//    
+//    /// Keep track of downloads across launches.
+//    private var metadataList: [String: DownloadMetadata] = [:] {
+//        didSet { saveMetadataListToDisk() }
+//    }
+//    
+//    // MARK: - Retry Config
+//
+//    private let maxRetries = 10
+//    private let retryDelay: TimeInterval = 5.0
+//    
+//    // MARK: - Chunk Size
+//    
+//    /// Adjust as needed. 10 MB is just an example.
+//    private let chunkSize: Int64 = 1_000_000
+//    
+//    // MARK: - Public API
+//    
+//    /// Instead of using `URLSessionDownloadTask`, we do a HEAD request + segmented download.
+//    func startDownload(videoId: String, from url: URL) {
+//        print("[DownloadManager] Starting segmented download for \(videoId), url=\(url)")
+//        
+//        // Save metadata
+//        let meta = DownloadMetadata(videoId: videoId, remoteURL: url.absoluteString)
+//        metadataList[videoId] = meta
+//        
+//        // HEAD request to discover total file size
+//        var headRequest = URLRequest(url: url)
+//        headRequest.httpMethod = "HEAD"
+//        
+//        let headTask = urlSession.dataTask(with: headRequest) { [weak self] (_, response, error) in
+//            guard let self = self else { return }
+//            
+//            if let error = error {
+//                print("[DownloadManager] [ERROR] HEAD request failed: \(error)")
+//                self.delegate?.downloadDidFail(videoId: videoId, error: error)
+//                return
+//            }
+//            
+//            guard let httpResponse = response as? HTTPURLResponse,
+//                  httpResponse.statusCode == 200 || httpResponse.statusCode == 206 else {
+//                let err = NSError(domain: "SegmentedDownload",
+//                                  code: 1,
+//                                  userInfo: [NSLocalizedDescriptionKey: "Invalid status on HEAD request"])
+//                self.delegate?.downloadDidFail(videoId: videoId, error: err)
+//                return
+//            }
+//            
+//            // Attempt to read Content-Length
+//            let lengthStr = httpResponse.allHeaderFields["Content-Length"] as? String ?? "0"
+//            guard let totalSize = Int64(lengthStr) else {
+//                let err = NSError(domain: "SegmentedDownload",
+//                                  code: 2,
+//                                  userInfo: [NSLocalizedDescriptionKey: "Unable to parse Content-Length"])
+//                self.delegate?.downloadDidFail(videoId: videoId, error: err)
+//                return
+//            }
+//            
+//            // Create context for segmented download
+//            let context = SegmentedDownloadContext(
+//                videoId: videoId,
+//                remoteURL: url,
+//                totalSize: totalSize,
+//                segmentSize: self.chunkSize
+//            )
+//            self.activeDownloads[videoId] = context
+//            print("[DownloadManager] \(videoId) total size: \(totalSize) bytes, beginning chunked download...")
+//            
+//            // Begin by downloading the first segment
+//            self.downloadNextSegment(context: context)
+//        }
+//        
+//        headTask.resume()
+//    }
+//    
+//    /// Cancel the segmented download by removing the context from activeDownloads.
+//    func cancelDownload(videoId: String) {
+//        if let _ = activeDownloads[videoId] {
+//            activeDownloads.removeValue(forKey: videoId)
+//            print("[DownloadManager] Canceled segmented download for \(videoId).")
+//        } else {
+//            print("[DownloadManager] No active segmented download to cancel for \(videoId).")
+//        }
+//    }
+//    
+//    /// NOT USED in chunk approach (but we leave it to keep your public API unchanged).
+//    func resumeDownload(videoId: String, from url: URL) {
+//        print("[DownloadManager] (Segmented) resumeDownload is not applicable for chunk-based approach.")
+//        // No-op or re-start the entire segmented approach if needed
+//        startDownload(videoId: videoId, from: url)
+//    }
+//    
+//    /// Check if there's an active segmented context for that videoId
+//    func isTaskActive(videoId: String) -> Bool {
+//        return activeDownloads[videoId] != nil
+//    }
+//    
+//    // MARK: - Chunked Download Flow
+//    
+//    private func downloadNextSegment(context: SegmentedDownloadContext) {
+//        // If user canceled, context is gone
+//        guard activeDownloads[context.videoId] != nil else { return }
+//        
+//        // Check if we’ve downloaded all segments
+//        if context.currentSegmentIndex >= context.totalSegments {
+//            // All segments done, concatenate
+//            concatenateSegments(context: context)
+//            return
+//        }
+//        
+//        // Calculate range for this chunk
+//        let startByte = context.segmentSize * Int64(context.currentSegmentIndex)
+//        let endByte   = min(startByte + context.segmentSize - 1, context.totalSize - 1)
+//        
+//        var request = URLRequest(url: context.remoteURL)
+//        request.httpMethod = "GET"
+//        request.setValue("bytes=\(startByte)-\(endByte)", forHTTPHeaderField: "Range")
+//        
+//        let segmentIndex = context.currentSegmentIndex
+//        print("[DownloadManager] \(context.videoId) downloading segment #\(segmentIndex) range=\(startByte)-\(endByte)")
+//        
+//        let dataTask = urlSession.dataTask(with: request) { [weak self] data, response, error in
+//            guard let self = self else { return }
+//            
+//            // If canceled, bail out
+//            guard self.activeDownloads[context.videoId] != nil else { return }
+//            
+//            if let error = error {
+//                print("[DownloadManager] [ERROR] segment #\(segmentIndex) for \(context.videoId) failed: \(error)")
+//                
+//                // Retry logic
+//                let attempts = context.segmentRetryCount[segmentIndex] ?? 0
+//                if attempts < self.maxRetries {
+//                    context.segmentRetryCount[segmentIndex] = attempts + 1
+//                    print("[DownloadManager] Retrying segment #\(segmentIndex) in \(self.retryDelay) seconds (attempt \(attempts + 1))...")
+//                    DispatchQueue.main.asyncAfter(deadline: .now() + self.retryDelay) {
+//                        self.downloadNextSegment(context: context)
+//                    }
+//                } else {
+//                    // Too many retries
+//                    self.failDownload(context: context, error: error)
+//                }
+//                return
+//            }
+//            
+//            // Validate response & data
+//            guard let httpResponse = response as? HTTPURLResponse,
+//                  (httpResponse.statusCode == 206 || httpResponse.statusCode == 200),
+//                  let data = data, !data.isEmpty
+//            else {
+//                let err = NSError(domain: "SegmentedDownload",
+//                                  code: 3,
+//                                  userInfo: [NSLocalizedDescriptionKey: "Invalid response or empty data for segment #\(segmentIndex)."])
+//                // Retry or fail
+//                let attempts = context.segmentRetryCount[segmentIndex] ?? 0
+//                if attempts < self.maxRetries {
+//                    context.segmentRetryCount[segmentIndex] = attempts + 1
+//                    print("[DownloadManager] Retrying segment #\(segmentIndex) (attempt \(attempts + 1))...")
+//                    self.downloadNextSegment(context: context)
+//                } else {
+//                    self.failDownload(context: context, error: err)
+//                }
+//                return
+//            }
+//            
+//            // Write segment to disk
+//            do {
+//                let segmentURL = self.tempSegmentURL(videoId: context.videoId, index: segmentIndex)
+//                try data.write(to: segmentURL, options: .atomic)
+//                print("[DownloadManager] \(context.videoId) wrote segment #\(segmentIndex) to \(segmentURL.lastPathComponent)")
+//            } catch {
+//                print("[DownloadManager] [ERROR] writing segment #\(segmentIndex) to disk: \(error)")
+//                self.failDownload(context: context, error: error)
+//                return
+//            }
+//            
+//            // Move to next segment
+//            context.currentSegmentIndex += 1
+//            
+//            // Update progress to delegate
+//            let receivedSoFar = min(Int64(context.currentSegmentIndex) * context.segmentSize, context.totalSize)
+//            self.delegate?.downloadDidUpdateProgress(
+//                videoId: context.videoId,
+//                receivedBytes: receivedSoFar,
+//                totalBytes: context.totalSize
+//            )
+//            
+//            // Continue with next chunk
+//            self.downloadNextSegment(context: context)
+//        }
+//        
+//        dataTask.resume()
+//    }
+//    
+//    private func concatenateSegments(context: SegmentedDownloadContext) {
+//        print("[DownloadManager] \(context.videoId) all segments downloaded, concatenating...")
+//        
+//        let finalURL = localFileURL(videoId: context.videoId)
+//        // Remove old file if exists
+//        if FileManager.default.fileExists(atPath: finalURL.path) {
+//            try? FileManager.default.removeItem(at: finalURL)
+//        }
+//        // Create empty file
+//        FileManager.default.createFile(atPath: finalURL.path, contents: nil, attributes: nil)
+//        
+//        guard let handle = try? FileHandle(forWritingTo: finalURL) else {
+//            let err = NSError(domain: "SegmentedDownload",
+//                              code: 4,
+//                              userInfo: [NSLocalizedDescriptionKey: "Could not open final file handle."])
+//            failDownload(context: context, error: err)
+//            return
+//        }
+//        
+//        // Append each segment
+//        for i in 0..<context.totalSegments {
+//            let segmentURL = tempSegmentURL(videoId: context.videoId, index: i)
+//            if !FileManager.default.fileExists(atPath: segmentURL.path) {
+//                let err = NSError(domain: "SegmentedDownload",
+//                                  code: 5,
+//                                  userInfo: [NSLocalizedDescriptionKey: "Missing segment #\(i)"])
+//                failDownload(context: context, error: err)
+//                handle.closeFile()
+//                return
+//            }
+//            do {
+//                let chunkData = try Data(contentsOf: segmentURL)
+//                handle.seekToEndOfFile()
+//                handle.write(chunkData)
+//            } catch {
+//                failDownload(context: context, error: error)
+//                handle.closeFile()
+//                return
+//            }
+//        }
+//        
+//        handle.closeFile()
+//        
+//        // Clean up temp segment files
+//        for i in 0..<context.totalSegments {
+//            let segURL = tempSegmentURL(videoId: context.videoId, index: i)
+//            try? FileManager.default.removeItem(at: segURL)
+//        }
+//        
+//        // Mark as done
+//        activeDownloads.removeValue(forKey: context.videoId)
+//        metadataList.removeValue(forKey: context.videoId)
+//        
+//        // Notify delegate
+//        delegate?.downloadDidComplete(videoId: context.videoId, localFileURL: finalURL)
+//    }
+//    
+//    private func failDownload(context: SegmentedDownloadContext, error: Error) {
+//        // Remove temp files
+//        for i in 0..<context.totalSegments {
+//            let segURL = tempSegmentURL(videoId: context.videoId, index: i)
+//            try? FileManager.default.removeItem(at: segURL)
+//        }
+//        // Remove from active
+//        activeDownloads.removeValue(forKey: context.videoId)
+//        metadataList.removeValue(forKey: context.videoId)
+//        
+//        // Notify
+//        delegate?.downloadDidFail(videoId: context.videoId, error: error)
+//    }
+//    
+//    // MARK: - File Helpers
+//    
+//    func localFileURL(videoId: String) -> URL {
+//        // Reuse your existing approach
+//        let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+//        return cachesDir.appendingPathComponent("\(videoId).mp4")
+//    }
+//    
+//    private func tempSegmentURL(videoId: String, index: Int) -> URL {
+//        // e.g. /tmp/videoId_part0.tmp
+//        let tmpDir = FileManager.default.temporaryDirectory
+//        return tmpDir.appendingPathComponent("\(videoId)_part\(index).tmp")
+//    }
+//    
+//    // MARK: - Unused Old Resume Logic
+//    
+//    /// We keep these around to avoid breaking your interface,
+//    /// but they're not used in the segmented approach.
+//    func hasResumeData(for videoId: String) -> Bool {
+//        return false
+//    }
+//    
+//    // MARK: - Old Remove/Save Resume Data
+//    
+//    private func saveResumeDataToDisk(_ data: Data, for videoId: String) {
+//        // In chunk approach, not used
+//    }
+//    
+//    private func removeResumeDataFromDisk(for videoId: String) {
+//        // In chunk approach, not used
+//    }
+//    
+//    private func loadResumeDataFromDisk(for videoId: String) -> Data? {
+//        return nil
+//    }
+//    
+//    // MARK: - Metadata Persistence
+//    
+//    private func metadataListURL() -> URL {
+//        let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+//        return cachesDir.appendingPathComponent("DownloadsManifest.json")
+//    }
+//    
+//    private func saveMetadataListToDisk() {
+//        do {
+//            let data = try JSONEncoder().encode(Array(metadataList.values))
+//            try data.write(to: metadataListURL(), options: .atomic)
+//        } catch {
+//            print("[DownloadManager] [ERROR] Saving metadataList: \(error)")
+//        }
+//    }
+//    
+//    private func loadMetadataListFromDisk() -> [String: DownloadMetadata] {
+//        let url = metadataListURL()
+//        guard FileManager.default.fileExists(atPath: url.path) else { return [:] }
+//        
+//        do {
+//            let data = try Data(contentsOf: url)
+//            let items = try JSONDecoder().decode([DownloadMetadata].self, from: data)
+//            var dict = [String: DownloadMetadata]()
+//            for meta in items {
+//                dict[meta.videoId] = meta
+//            }
+//            return dict
+//        } catch {
+//            print("[DownloadManager] [ERROR] Loading metadataList: \(error)")
+//            return [:]
+//        }
+//    }
+//    
+//    private func reloadIncompleteDownloads() {
+//        let loaded = loadMetadataListFromDisk()
+//        self.metadataList = loaded
+//        // If you want to automatically resume on startup, do so here—but in chunk approach, you’d just re-start them.
+//    }
+//    
+//    // MARK: - Debug Helpers
+//    
+//    /// You had a helper to see if local file exists
+//    func doesLocalFileExist(videoId: String) -> Bool {
+//        return FileManager.default.fileExists(atPath: localFileURL(videoId: videoId).path)
+//    }
+//    
+//    /// Deletion helper
+//    func deleteLocalFile(videoId: String) {
+//        let path = localFileURL(videoId: videoId)
+//        guard FileManager.default.fileExists(atPath: path.path) else { return }
+//        do {
+//            try FileManager.default.removeItem(at: path)
+//            print("[DownloadManager] Deleted local file for \(videoId).")
+//        } catch {
+//            print("[DownloadManager] [ERROR] Deleting file for \(videoId): \(error)")
+//        }
+//    }
+//}

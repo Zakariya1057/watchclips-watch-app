@@ -1,13 +1,25 @@
-//  DownloadsViewModel.swift
-//  Example
-//
-//  Created by Example on 2024-01-01.
-//
-
 import SwiftUI
+import WatchKit
+
+// MARK: - DownloadManagerDelegate
+protocol DownloadManagerDelegate: AnyObject {
+    func downloadDidUpdateProgress(videoId: String, receivedBytes: Int64, totalBytes: Int64)
+    func downloadDidComplete(videoId: String, localFileURL: URL?)
+    func downloadDidFail(videoId: String, error: Error)
+}
+
+// MARK: - SegmentedDownloadManagerDelegate
+protocol SegmentedDownloadManagerDelegate: AnyObject {
+    func segmentedDownloadDidUpdateProgress(videoId: String, progress: Double)
+    func segmentedDownloadDidComplete(videoId: String, fileURL: URL)
+    func segmentedDownloadDidFail(videoId: String, error: any Error)
+}
+
+// MARK: - DownloadsViewModel
 
 @MainActor
 class DownloadsViewModel: ObservableObject {
+    // MARK: - Published Properties
     @Published var videos: [DownloadedVideo] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -15,15 +27,21 @@ class DownloadsViewModel: ObservableObject {
     private let cachedVideosService: CachedVideosService
     private let store = DownloadsStore()
     
-    /// The ForegroundDownloadManager handles the actual downloads.
-    private let bgManager = ForegroundDownloadManager.shared
+    /// Our new parallel chunk-based manager (with two-host splitting).
+    private let bgManager = SegmentedDownloadManager.shared
 
     init(cachedVideosService: CachedVideosService) {
         self.cachedVideosService = cachedVideosService
-        bgManager.delegate = self // Become the delegate
+        
+        // Become the chunk-based delegate
+        bgManager.segmentedDelegate = self
+        
+        // (Optional) Also handle old-style callbacks:
+        bgManager.oldDelegate = self
+        
         print("[DownloadsViewModel] Initialized with CachedVideosService.")
     }
-
+    
     // MARK: - Local Persistence
     
     func loadLocalDownloads() {
@@ -37,7 +55,7 @@ class DownloadsViewModel: ObservableObject {
         store.saveDownloads(videos)
         print("[DownloadsViewModel] Persist complete.")
     }
-
+    
     // MARK: - Server
     
     func loadServerVideos(forCode code: String, useCache: Bool = true) async {
@@ -86,9 +104,9 @@ class DownloadsViewModel: ObservableObject {
             print("[DownloadsViewModel] [ERROR] \(msg)")
         }
     }
-
-    // MARK: - Start / Resume / Pause / Delete
     
+    // MARK: - Start / Pause / Delete
+
     func startOrResumeDownload(_ item: DownloadedVideo) {
         guard item.downloadStatus != .downloading && item.downloadStatus != .completed else {
             print("[DownloadsViewModel] \(item.id) is already downloading or completed.")
@@ -102,60 +120,61 @@ class DownloadsViewModel: ObservableObject {
 
         print("[DownloadsViewModel] Initiating startOrResumeDownload for videoId: \(item.id).")
         
-        // Switch to "downloading"
+        // Mark it as "downloading" in our local model
         updateStatus(item.id, status: .downloading, errorMessage: nil)
         
-        // Resume or start a fresh download via the manager
+        // Let the chunk-based manager do the rest
         bgManager.resumeDownload(videoId: item.id, from: remoteURL)
     }
     
     func pauseDownload(_ item: DownloadedVideo) {
-        print("[DownloadsViewModel] Pausing download for videoId: \(item.id).")
+        print("[DownloadsViewModel] Pausing download for \(item.id).")
         bgManager.cancelDownload(videoId: item.id)
         updateStatus(item.id, status: .paused, errorMessage: nil)
     }
     
+    /// **Deletes both** the final `.mp4` **and** any partial data if the download is in progress.
     func deleteVideo(_ item: DownloadedVideo) {
-        print("[DownloadsViewModel] Deleting local file and resetting video download for \(item.id).")
-        bgManager.deleteLocalFile(videoId: item.id)
-
+        print("[DownloadsViewModel] Deleting local file (and partial data) for \(item.id).")
+        
+        // 1) Tell the manager to remove everything (cancel + delete files + metadata).
+        bgManager.removeDownloadCompletely(videoId: item.id)
+        
+        // 2) Reset status in local model
         var updated = item
         updated.downloadStatus = .notStarted
         updated.downloadedBytes = 0
         updated.errorMessage = nil
 
+        // 3) Update local array
         if let index = videos.firstIndex(where: { $0.id == item.id }) {
             videos[index] = updated
-            print("[DownloadsViewModel] Successfully reset download status for video \(item.id).")
+            print("[DownloadsViewModel] Reset download status for video \(item.id).")
         } else {
             print("[DownloadsViewModel] [ERROR] Could not find video \(item.id) in current list to delete.")
         }
+        
+        // 4) Persist changes
         persist()
     }
-
-    /// Resume any item that was last known "downloading" (e.g. if the app was killed).
+    
     func resumeInProgressDownloads() {
-        print("[DownloadsViewModel] Attempting to resume in-progress downloads...")
+        print("[DownloadsViewModel] Attempting to resume in-progress downloads (chunk-based).")
+
         for item in videos where item.downloadStatus == .downloading {
-            let hasResumeData = bgManager.hasResumeData(for: item.id)
             let isActive = bgManager.isTaskActive(videoId: item.id)
-            
-            if !hasResumeData && !isActive {
-                // Not truly in-progress, revert to paused or error
-                print("[DownloadsViewModel] No partial data or active task for \(item.id). Not restarting.")
-                updateStatus(item.id, status: .paused, errorMessage: nil)
-                continue
+            if !isActive {
+                guard let remoteURL = buildRemoteURL(item.video) else {
+                    print("[DownloadsViewModel] [ERROR] Could not build remote URL for \(item.id). Skipping resume.")
+                    continue
+                }
+                
+                print("[DownloadsViewModel] Re-queuing \(item.id) because it was .downloading but not active in manager.")
+                bgManager.startDownload(videoId: item.id, from: remoteURL)
             }
-            
-            guard let remoteURL = buildRemoteURL(item.video) else {
-                print("[DownloadsViewModel] [ERROR] Could not build remote URL for \(item.id). Skipping resume.")
-                continue
-            }
-            // If partial data or an active task exists, you could resumeDownload again, e.g.:
-            // bgManager.resumeDownload(videoId: item.id, from: remoteURL)
         }
     }
-
+    
     // MARK: - Helpers
     
     func progress(for item: DownloadedVideo) -> Double {
@@ -171,82 +190,105 @@ class DownloadsViewModel: ObservableObject {
                               status: DownloadStatus,
                               receivedBytes: Int64? = nil,
                               totalBytes: Int64? = nil,
-                              errorMessage: String? = nil)
-    {
+                              errorMessage: String? = nil) {
         guard let idx = videos.firstIndex(where: { $0.id == videoId }) else {
-            print("[DownloadsViewModel] [ERROR] Unable to update status. No matching video found for videoId: \(videoId).")
+            print("[DownloadsViewModel] [ERROR] No matching video found for \(videoId).")
             return
         }
         
-        var vid = videos[idx]
-        vid.downloadStatus = status
-        vid.downloadedBytes = receivedBytes ?? vid.downloadedBytes
-        vid.totalBytes = totalBytes ?? vid.totalBytes
-        vid.errorMessage = errorMessage
-        videos[idx] = vid
+        var v = videos[idx]
+        v.downloadStatus = status
+        v.downloadedBytes = receivedBytes ?? v.downloadedBytes
+        v.totalBytes = totalBytes ?? v.totalBytes
+        v.errorMessage = errorMessage
+        videos[idx] = v
         
-        print("[DownloadsViewModel] Updated status for \(videoId) to \(status). "
-              + "downloadedBytes=\(vid.downloadedBytes), totalBytes=\(vid.totalBytes), errorMessage=\(errorMessage ?? "nil")")
+        print("[DownloadsViewModel] Updated status for \(videoId) => \(status). "
+              + "downloadedBytes=\(v.downloadedBytes), totalBytes=\(v.totalBytes), error=\(errorMessage ?? "nil")")
         
         persist()
     }
 
-    private func buildRemoteURL(_ v: Video) -> URL? {
-        // Example base URL - adjust to your real one
+    private func buildRemoteURL(_ video: Video) -> URL? {
+        // Example base URL - just one domain for the "primary" path
         guard let base = URL(string: "https://dwxvsu8u3eeuu.cloudfront.net") else {
             print("[DownloadsViewModel] [ERROR] Invalid base URL string.")
             return nil
         }
         return base
             .appendingPathComponent("processed")
-            .appendingPathComponent(v.code)
-            .appendingPathComponent("\(v.id).mp4")
+            .appendingPathComponent(video.code)
+            .appendingPathComponent("\(video.id).mp4")
     }
 }
 
-// MARK: - Conform to DownloadManagerDelegate
-
-extension DownloadsViewModel: DownloadManagerDelegate {
-    /// Called when a download has updated progress.
-    func downloadDidUpdateProgress(videoId: String, receivedBytes: Int64, totalBytes: Int64) {
+// MARK: - SegmentedDownloadManagerDelegate
+extension DownloadsViewModel: SegmentedDownloadManagerDelegate {
+    func segmentedDownloadDidUpdateProgress(videoId: String, progress: Double) {
         Task { @MainActor in
-            print("[DownloadsViewModel] Progress update for \(videoId): \(receivedBytes)/\(totalBytes)")
+            guard let idx = videos.firstIndex(where: { $0.id == videoId }) else { return }
+            
+            let item = videos[idx]
+            let total = item.totalBytes
+            let current = Int64(Double(total) * progress)
+            
             updateStatus(videoId, status: .downloading,
-                         receivedBytes: receivedBytes,
-                         totalBytes: totalBytes,
-                         errorMessage: nil)
+                         receivedBytes: current,
+                         totalBytes: total)
+            
+            print("[DownloadsViewModel] [Segmented] \(videoId) progress: \(progress * 100)%")
         }
     }
-
-    /// Called when a download completes successfully.
-    func downloadDidComplete(videoId: String, localFileURL: URL?) {
+    
+    func segmentedDownloadDidComplete(videoId: String, fileURL: URL) {
         Task { @MainActor in
-            print("[DownloadsViewModel] Download complete for \(videoId). Local file: \(localFileURL?.lastPathComponent ?? "nil")")
+            print("[DownloadsViewModel] [Segmented] \(videoId) => Completed, file: \(fileURL.lastPathComponent)")
             updateStatus(videoId, status: .completed)
             
-            // Find the corresponding video so we can get its title
-            guard let item = videos.first(where: { $0.id == videoId }) else {
-                print("[DownloadsViewModel] Could not find item for videoId: \(videoId)")
-                return
-            }
-            
-            // Use the video's actual title for the notification
-            let videoTitle = item.video.title ?? ""  // e.g., "My Great Video"
-            
-            // **Notify the user of completion** via a local notification:
-            NotificationManager.shared.scheduleLocalNotification(
-                title: videoTitle,
-                body: "Download is complete! Your video is ready to watch."
-            ) { success in
-                print("[DownloadsViewModel] Notification scheduled? \(success)")
+            // Optionally trigger a local notification:
+            if let item = videos.first(where: { $0.id == videoId }) {
+                let title = item.video.title ?? "(Untitled)"
+                NotificationManager.shared.scheduleLocalNotification(
+                    title: title,
+                    body: "Your video is ready to watch!"
+                ) { success in
+                    print("[DownloadsViewModel] Notification scheduled? \(success)")
+                }
             }
         }
     }
-
-    /// Called when a download fails with an error.
-    func downloadDidFail(videoId: String, error: Error) {
-        print("[DownloadsViewModel] [ERROR] Download failed for \(videoId). Error: \(error.localizedDescription)")
+    
+    func segmentedDownloadDidFail(videoId: String, error: any Error) {
         Task { @MainActor in
+            let message = "[DownloadsViewModel] [Segmented] \(videoId) => Failed: \(error.localizedDescription)"
+            print(message)
+            updateStatus(videoId, status: .error, errorMessage: error.localizedDescription)
+        }
+    }
+}
+
+// MARK: - Old DownloadManagerDelegate
+extension DownloadsViewModel: DownloadManagerDelegate {
+    func downloadDidUpdateProgress(videoId: String, receivedBytes: Int64, totalBytes: Int64) {
+        Task { @MainActor in
+            print("[DownloadsViewModel] [OldDelegate] \(videoId) progress: \(receivedBytes)/\(totalBytes)")
+            updateStatus(videoId, status: .downloading,
+                         receivedBytes: receivedBytes,
+                         totalBytes: totalBytes)
+        }
+    }
+    
+    func downloadDidComplete(videoId: String, localFileURL: URL?) {
+        Task { @MainActor in
+            print("[DownloadsViewModel] [OldDelegate] \(videoId) => Complete, file: \(localFileURL?.lastPathComponent ?? "nil")")
+            updateStatus(videoId, status: .completed)
+        }
+    }
+    
+    func downloadDidFail(videoId: String, error: Error) {
+        Task { @MainActor in
+            let msg = "[DownloadsViewModel] [OldDelegate] \(videoId) => Fail: \(error.localizedDescription)"
+            print(msg)
             updateStatus(videoId, status: .error, errorMessage: error.localizedDescription)
         }
     }

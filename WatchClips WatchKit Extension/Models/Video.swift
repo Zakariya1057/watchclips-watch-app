@@ -26,10 +26,16 @@ struct Video: Identifiable, Codable {
     let createdAt: Date
     let updatedAt: Date
     let status: VideoStatus?  // The server’s processing status
+    
+    // NEW FIELDS:
+    let processedSegments: Int?
+    let expectedSegments: Int?
 
     enum CodingKeys: String, CodingKey {
         case id, code, title, image, filename, url, size, duration, status
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
+        case processedSegments = "processed_segments"
+        case expectedSegments  = "expected_segments"
+        case createdAt         = "created_at"
+        case updatedAt         = "updated_at"
     }
 }

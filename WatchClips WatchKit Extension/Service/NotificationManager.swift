@@ -1,21 +1,19 @@
-//
-//  NotificationManager.swift
-//  WatchClips Watch App
-//
-//  Created by [Your Name] on [Date].
-//
-
 import Foundation
 import UserNotifications
+import WatchKit
 
 /// A singleton class responsible for requesting notification authorization
 /// and scheduling local notifications on watchOS.
-class NotificationManager: ObservableObject {
+class NotificationManager: NSObject, ObservableObject {
     
     // MARK: - Singleton
     static let shared = NotificationManager()
     
-    private init() {}
+    private override init() {
+        super.init()
+        // 1) Set ourselves as the UNUserNotificationCenter delegate
+        UNUserNotificationCenter.current().delegate = self
+    }
     
     // MARK: - Request Authorization
     /// Request the user’s permission for alert and sound notifications.
@@ -62,5 +60,21 @@ class NotificationManager: ObservableObject {
                 completion(true)
             }
         }
+    }
+}
+
+// MARK: - UNUserNotificationCenterDelegate
+extension NotificationManager: UNUserNotificationCenterDelegate {
+    
+    /// Called when a notification arrives *while* the app is in the foreground.
+    /// Use this to tell watchOS to still show a banner/alert/sound, etc.
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler:
+                                @escaping (UNNotificationPresentationOptions) -> Void) {
+        
+        // By default, watchOS won't show alerts if the app is foreground.
+        // Force it to show an alert banner and play a sound:
+        completionHandler([.banner, .sound])
     }
 }
