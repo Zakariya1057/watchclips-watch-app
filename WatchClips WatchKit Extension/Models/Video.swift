@@ -14,7 +14,7 @@ enum VideoStatus: String, Codable {
     case chunkProcessingFailure = "CHUNK_PROCESSING_FAILURE"
 }
 
-struct Video: Identifiable, Codable {
+struct Video: Identifiable, Codable, Equatable {
     let id: String
     let code: String
     let title: String?

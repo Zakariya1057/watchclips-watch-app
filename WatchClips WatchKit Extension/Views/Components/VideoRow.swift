@@ -113,7 +113,7 @@ struct VideoRow: View {
                         .font(.subheadline)
                         .foregroundColor(.green)
                 } else {
-                    Text("🌐 Streaming")
+                    Text("☁️ Online")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }

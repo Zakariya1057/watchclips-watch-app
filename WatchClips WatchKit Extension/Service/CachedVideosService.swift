@@ -38,6 +38,10 @@ struct CachedVideosService {
             return fresh
         }
     }
+    
+    public func fetchVideo(forCode code: String, forVideoId videoId: String) async throws -> Video? {
+        return try await fetchVideos(forCode: code, useCache: true).first {$0.id == videoId}
+    }
 
     /// Forces a refresh from remote, ignoring the cache. Throws error if offline.
     func refreshVideos(forCode code: String) async throws -> [Video] {

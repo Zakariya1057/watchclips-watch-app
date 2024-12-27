@@ -46,15 +46,15 @@ struct VideoListView: View {
                     if isLoading {
                         // Show a loading row
                         HStack {
-                            Spacer()
                             ProgressView("Loading videos...")
                                 .progressViewStyle(CircularProgressViewStyle())
                                 .padding()
-                            Spacer()
                         }
+                        .padding()
                         .listRowBackground(Color.black)
-                        
-                    } else if videos.isEmpty {
+                    }
+                    
+                    if videos.isEmpty {
                         // Show empty/error state
                         emptyOrErrorStateRows
                     } else {
@@ -291,6 +291,7 @@ struct VideoListView: View {
             errorMessage = nil
             isLoading = true
         }
+        
         let oldVideos = videos
         defer {
             Task { @MainActor in isLoading = false }
@@ -332,6 +333,22 @@ struct VideoListView: View {
                 isInitialLoad = false
             }
         }
+    }
+    
+    private func hasVideosChanged(_ newVideos: [Video]) -> Bool {
+        for video in newVideos {
+            let matchingVideo = videos.first { oldVideo in oldVideo.id == video.id }
+            
+            if let matchingVideo = matchingVideo {
+                if video != matchingVideo {
+                    return true
+                }
+            } else {
+                return true
+            }
+        }
+        
+        return false
     }
 
     private func loadCachedVideos() -> [Video]? {

@@ -58,20 +58,16 @@ class SegmentedDownloadManager: NSObject {
     // MARK: - Extended Runtime Session
     
     func beginExtendedRuntimeSession() {
-        if #available(watchOS 6.0, *) {
-            guard extendedSession == nil else {
-                print("[SegmentedDownloadManager] Extended session already active.")
-                return
-            }
-            
-            let session = WKExtendedRuntimeSession()
-            session.delegate = self
-            extendedSession = session
-            session.start()
-            print("[SegmentedDownloadManager] Extended runtime session started.")
-        } else {
-            print("[SegmentedDownloadManager] WKExtendedRuntimeSession not available on older watchOS.")
+        guard extendedSession == nil else {
+            print("[SegmentedDownloadManager] Extended session already active.")
+            return
         }
+        
+        let session = WKExtendedRuntimeSession()
+        session.delegate = self
+        extendedSession = session
+        session.start()
+        print("[SegmentedDownloadManager] Extended runtime session started.")
     }
     
     func endExtendedRuntimeSession() {
@@ -543,7 +539,6 @@ class SegmentedDownloadManager: NSObject {
 }
 
 // MARK: - WKExtendedRuntimeSessionDelegate
-@available(watchOS 6.0, *)
 extension SegmentedDownloadManager: WKExtendedRuntimeSessionDelegate {
     func extendedRuntimeSession(_ extendedRuntimeSession: WKExtendedRuntimeSession,
                                 didInvalidateWith reason: WKExtendedRuntimeSessionInvalidationReason,

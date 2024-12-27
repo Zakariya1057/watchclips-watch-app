@@ -26,9 +26,16 @@ struct DownloadList: View {
         VStack {
             // 1) Loading or Error states
             if viewModel.isLoading {
-                ProgressView("Loading videos...")
+                // Show a loading row
+                HStack {
+                    ProgressView("Loading videos...")
+                        .progressViewStyle(CircularProgressViewStyle())
+                        .padding()
+                }
+                .listRowBackground(Color.black)
             }
-            else if viewModel.videos.isEmpty {
+            
+            if viewModel.videos.isEmpty {
                 if let error = viewModel.errorMessage {
                     Text("Failed or no videos: \(error)")
                 } else {
