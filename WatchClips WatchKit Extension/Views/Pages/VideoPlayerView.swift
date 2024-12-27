@@ -21,7 +21,7 @@ struct VideoPlayerView: View {
     @State private var statusObservation: NSKeyValueObservation?
     @State private var lastPlaybackTime: Double = 0.0
     @State private var wasPlayingBeforeSwitch = false
-    @State private var currentlyUsingLocal = false
+    @State private var currentlyUsingLocal = true
     @State private var didStartSetup = false
     
     private var sessionManager: SessionManager = SessionManager()
@@ -75,7 +75,7 @@ struct VideoPlayerView: View {
                         }
                         ProgressView()
                             .scaleEffect(2.0)
-                            .frame(width: .infinity, height: 30)
+                            .frame(maxWidth: .infinity, minHeight: 30, maxHeight: 30)
                     }
                 }
                 .zIndex(3)

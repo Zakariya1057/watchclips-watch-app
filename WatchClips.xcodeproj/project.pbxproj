@@ -13,16 +13,13 @@
 		365ACBEB2D16BD540078A6A4 /* DownloadedVideo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365ACBEA2D16BD540078A6A4 /* DownloadedVideo.swift */; };
 		365ACBF12D16C1200078A6A4 /* DownloadsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365ACBF02D16C1200078A6A4 /* DownloadsViewModel.swift */; };
 		365ACBF32D16CA6B0078A6A4 /* DownloadsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365ACBF22D16CA6B0078A6A4 /* DownloadsStore.swift */; };
-		365ACBF92D16D5FC0078A6A4 /* PartialDownloadStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365ACBF82D16D5FC0078A6A4 /* PartialDownloadStore.swift */; };
 		365ACBFC2D16D7100078A6A4 /* SingleStreamDownloadDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365ACBFB2D16D7100078A6A4 /* SingleStreamDownloadDelegate.swift */; };
-		365ACBFE2D16F6C80078A6A4 /* DownloadManagerDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365ACBFD2D16F6C80078A6A4 /* DownloadManagerDelegate.swift */; };
 		365ACC002D1738510078A6A4 /* DownloadRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365ACBFF2D1738510078A6A4 /* DownloadRow.swift */; };
 		365E78762D1C8A9100A6DE13 /* PlaybackProgressService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365E78752D1C8A9100A6DE13 /* PlaybackProgressService.swift */; };
-		367907842D1E293C00AE02EA /* ExtendedAudioSessionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367907832D1E293C00AE02EA /* ExtendedAudioSessionHandler.swift */; };
+		367907862D1F2A9500AE02EA /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367907852D1F2A9500AE02EA /* AppState.swift */; };
 		36918DBD2D1B3FC7008FB158 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36918DBC2D1B3FC7008FB158 /* NotificationManager.swift */; };
 		36D977972D14C63500A8C717 /* WatchClipsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D977942D14C63500A8C717 /* WatchClipsApp.swift */; };
 		36D977982D14C63500A8C717 /* MediaData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D9777A2D14C63500A8C717 /* MediaData.swift */; };
-		36D977992D14C63500A8C717 /* ResumeCapableDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D977802D14C63500A8C717 /* ResumeCapableDownloader.swift */; };
 		36D9779A2D14C63500A8C717 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D9778A2D14C63500A8C717 /* NetworkMonitor.swift */; };
 		36D9779B2D14C63500A8C717 /* Supabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D977822D14C63500A8C717 /* Supabase.swift */; };
 		36D9779D2D14C63500A8C717 /* VideoRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D9778F2D14C63500A8C717 /* VideoRow.swift */; };
@@ -98,18 +95,15 @@
 		365ACBEA2D16BD540078A6A4 /* DownloadedVideo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadedVideo.swift; sourceTree = "<group>"; };
 		365ACBF02D16C1200078A6A4 /* DownloadsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsViewModel.swift; sourceTree = "<group>"; };
 		365ACBF22D16CA6B0078A6A4 /* DownloadsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsStore.swift; sourceTree = "<group>"; };
-		365ACBF82D16D5FC0078A6A4 /* PartialDownloadStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartialDownloadStore.swift; sourceTree = "<group>"; };
 		365ACBFB2D16D7100078A6A4 /* SingleStreamDownloadDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleStreamDownloadDelegate.swift; sourceTree = "<group>"; };
-		365ACBFD2D16F6C80078A6A4 /* DownloadManagerDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManagerDelegate.swift; sourceTree = "<group>"; };
 		365ACBFF2D1738510078A6A4 /* DownloadRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadRow.swift; sourceTree = "<group>"; };
 		365E78752D1C8A9100A6DE13 /* PlaybackProgressService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackProgressService.swift; sourceTree = "<group>"; };
-		367907832D1E293C00AE02EA /* ExtendedAudioSessionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtendedAudioSessionHandler.swift; sourceTree = "<group>"; };
+		367907852D1F2A9500AE02EA /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		36918DBC2D1B3FC7008FB158 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		36D977792D14C63500A8C717 /* Code.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Code.swift; sourceTree = "<group>"; };
 		36D9777A2D14C63500A8C717 /* MediaData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaData.swift; sourceTree = "<group>"; };
 		36D9777B2D14C63500A8C717 /* Video.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Video.swift; sourceTree = "<group>"; };
 		36D9777F2D14C63500A8C717 /* VideoDownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoDownloadManager.swift; sourceTree = "<group>"; };
-		36D977802D14C63500A8C717 /* ResumeCapableDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResumeCapableDownloader.swift; sourceTree = "<group>"; };
 		36D977812D14C63500A8C717 /* CachedVideosService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedVideosService.swift; sourceTree = "<group>"; };
 		36D977822D14C63500A8C717 /* Supabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Supabase.swift; sourceTree = "<group>"; };
 		36D977842D14C63500A8C717 /* VideoService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoService.swift; sourceTree = "<group>"; };
@@ -192,16 +186,13 @@
 			isa = PBXGroup;
 			children = (
 				36918DBC2D1B3FC7008FB158 /* NotificationManager.swift */,
+				367907852D1F2A9500AE02EA /* AppState.swift */,
 				36D9778A2D14C63500A8C717 /* NetworkMonitor.swift */,
 				36D9777F2D14C63500A8C717 /* VideoDownloadManager.swift */,
-				367907832D1E293C00AE02EA /* ExtendedAudioSessionHandler.swift */,
 				365ACBF22D16CA6B0078A6A4 /* DownloadsStore.swift */,
 				3618B16E2D1CB9C50093ACC1 /* SegmentedDownloadManagerDelegate.swift */,
-				365ACBFD2D16F6C80078A6A4 /* DownloadManagerDelegate.swift */,
 				3618B1702D1DF1410093ACC1 /* SessionManager.swift */,
-				365ACBF82D16D5FC0078A6A4 /* PartialDownloadStore.swift */,
 				365E78752D1C8A9100A6DE13 /* PlaybackProgressService.swift */,
-				36D977802D14C63500A8C717 /* ResumeCapableDownloader.swift */,
 				36D977812D14C63500A8C717 /* CachedVideosService.swift */,
 				36D977822D14C63500A8C717 /* Supabase.swift */,
 				36D977842D14C63500A8C717 /* VideoService.swift */,
@@ -418,14 +409,11 @@
 			files = (
 				36D977972D14C63500A8C717 /* WatchClipsApp.swift in Sources */,
 				36D977982D14C63500A8C717 /* MediaData.swift in Sources */,
-				36D977992D14C63500A8C717 /* ResumeCapableDownloader.swift in Sources */,
 				36D9779A2D14C63500A8C717 /* NetworkMonitor.swift in Sources */,
 				365ACBEB2D16BD540078A6A4 /* DownloadedVideo.swift in Sources */,
 				36D9779B2D14C63500A8C717 /* Supabase.swift in Sources */,
-				367907842D1E293C00AE02EA /* ExtendedAudioSessionHandler.swift in Sources */,
 				3618B1712D1DF1450093ACC1 /* SessionManager.swift in Sources */,
 				36918DBD2D1B3FC7008FB158 /* NotificationManager.swift in Sources */,
-				365ACBF92D16D5FC0078A6A4 /* PartialDownloadStore.swift in Sources */,
 				36D9779D2D14C63500A8C717 /* VideoRow.swift in Sources */,
 				3618B16F2D1CB9C50093ACC1 /* SegmentedDownloadManagerDelegate.swift in Sources */,
 				36D9779E2D14C63500A8C717 /* CachedVideosService.swift in Sources */,
@@ -437,9 +425,9 @@
 				36D977A32D14C63500A8C717 /* VideoService.swift in Sources */,
 				365ACBF12D16C1200078A6A4 /* DownloadsViewModel.swift in Sources */,
 				365E78762D1C8A9100A6DE13 /* PlaybackProgressService.swift in Sources */,
+				367907862D1F2A9500AE02EA /* AppState.swift in Sources */,
 				36D977A42D14C63500A8C717 /* VideoDownloadManager.swift in Sources */,
 				365ACBE62D16BAB00078A6A4 /* DownloadList.swift in Sources */,
-				365ACBFE2D16F6C80078A6A4 /* DownloadManagerDelegate.swift in Sources */,
 				36D977A52D14C63500A8C717 /* VideoListView.swift in Sources */,
 				36D977A62D14C63500A8C717 /* VideoPlayerView.swift in Sources */,
 				36D977A72D14C63500A8C717 /* CachedAsyncImage.swift in Sources */,

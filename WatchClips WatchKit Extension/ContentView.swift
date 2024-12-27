@@ -1,17 +1,29 @@
 import SwiftUI
 
-struct ContentView: Scene {
+struct ContentView: View {
     @AppStorage("loggedInCode") private var loggedInCode: String = ""
-    
-    var body: some Scene {
-        WindowGroup {
-            NavigationStack {
-                if loggedInCode.isEmpty {
-                    LoginView()
-                } else {
-                    VideoListView(code: loggedInCode)
-                }
+    @StateObject private var appState = AppState.shared
+
+    // Pull from environment (same singletons from MyWatchApp)
+    @EnvironmentObject var videosService: VideosService
+    @EnvironmentObject var cachedService: CachedVideosService
+    @EnvironmentObject var downloadViewModel: DownloadsViewModel
+
+    var body: some View {
+        NavigationStack {
+            if loggedInCode.isEmpty {
+                LoginView()
+            } else {
+                VideoListView(code: loggedInCode)
             }
+        }
+        .onAppear {
+            downloadViewModel.loadLocalDownloads()
+            downloadViewModel.resumeInProgressDownloads()
+        }
+        .fullScreenCover(item: $appState.selectedVideo) { video in
+            VideoPlayerView(code: video.code, videoId: video.id)
+                .ignoresSafeArea()
         }
     }
 }

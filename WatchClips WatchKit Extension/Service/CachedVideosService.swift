@@ -1,6 +1,6 @@
 import Foundation
 
-struct CachedVideosService {
+class CachedVideosService: ObservableObject {
     private let videosService: VideosService
     private let cacheFileName: String = "cached_videos.json"
     

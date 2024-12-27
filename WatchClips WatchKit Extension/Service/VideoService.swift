@@ -1,8 +1,12 @@
-import Foundation
+import Combine
 import Supabase
 
-struct VideosService {
+class VideosService: ObservableObject {
     let client: SupabaseClient
+    
+    init(client: SupabaseClient) {
+        self.client = client
+    }
     
     func fetchVideos(forCode code: String) async throws -> [Video] {
         try await client

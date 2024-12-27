@@ -1,8 +1,13 @@
 import SwiftUI
 
 struct DownloadList: View {
-    @StateObject private var viewModel: DownloadsViewModel
-
+    /// Instead of creating a new DownloadsdownloadsVM,
+    /// we rely on the parent to provide it as an environment object.
+    @EnvironmentObject var downloadsVM: DownloadsViewModel
+    @EnvironmentObject var videosService: VideosService
+    
+    @Environment(\.dismiss) private var dismiss
+    
     /// Alert shown if user tries to download but the video is still post-processing
     @State private var showProcessingAlert = false
 
@@ -11,22 +16,16 @@ struct DownloadList: View {
 
     let code: String
 
+    /// Simple init that just stores the code.
+    /// We no longer create a new `DownloadsdownloadsVM` here.
     init(code: String) {
-        let videosService = VideosService(client: supabase) // adapt as needed
-        let cachedService = CachedVideosService(videosService: videosService)
-        
-        _viewModel = StateObject(
-            wrappedValue: DownloadsViewModel(cachedVideosService: cachedService)
-        )
-        
         self.code = code
     }
 
     var body: some View {
         VStack {
             // 1) Loading or Error states
-            if viewModel.isLoading {
-                // Show a loading row
+            if downloadsVM.isLoading {
                 HStack {
                     ProgressView("Loading videos...")
                         .progressViewStyle(CircularProgressViewStyle())
@@ -35,8 +34,8 @@ struct DownloadList: View {
                 .listRowBackground(Color.black)
             }
             
-            if viewModel.videos.isEmpty {
-                if let error = viewModel.errorMessage {
+            if downloadsVM.videos.isEmpty {
+                if let error = downloadsVM.errorMessage {
                     Text("Failed or no videos: \(error)")
                 } else {
                     VStack(spacing: 16) {
@@ -51,23 +50,22 @@ struct DownloadList: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 20)
                 }
-            }
-            else {
+            } else {
                 // 2) Actual list of downloads
                 List {
-                    ForEach(viewModel.videos) { item in
+                    ForEach(downloadsVM.videos) { item in
                         DownloadRow(
                             video: item,
-                            progress: viewModel.progress(for: item),
-                            isFullyDownloaded: viewModel.isFullyDownloaded(item),
+                            progress: downloadsVM.progress(for: item),
+                            isFullyDownloaded: downloadsVM.isFullyDownloaded(item),
                             startOrResumeAction: {
-                                viewModel.startOrResumeDownload(item)
+                                downloadsVM.startOrResumeDownload(item)
                             },
                             pauseAction: {
-                                viewModel.pauseDownload(item)
+                                downloadsVM.pauseDownload(item)
                             },
                             deleteAction: {
-                                viewModel.deleteVideo(item)
+                                downloadsVM.deleteVideo(item)
                             },
                             onProcessingNeeded: {
                                 showProcessingAlert = true
@@ -83,7 +81,7 @@ struct DownloadList: View {
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
-                                viewModel.deleteVideo(item)
+                                downloadsVM.deleteVideo(item)
                             } label: {
                                 Label("Delete", systemImage: "trash")
                             }
@@ -93,28 +91,33 @@ struct DownloadList: View {
             }
         }
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.left")
+                }
+            }
+            
             ToolbarItem(placement: .topBarTrailing) {
-                Button(action: {
+                Button {
                     Task {
-                        await viewModel.loadServerVideos(forCode: code, useCache: false)
+                        await downloadsVM.loadServerVideos(forCode: code, useCache: false)
                     }
-                }) {
+                } label: {
                     Image(systemName: "arrow.clockwise")
                 }
             }
         }
         .onAppear {
-            // Load local from UserDefaults
-            viewModel.loadLocalDownloads()
-
-            // Attempt to resume any in-progress downloads
-            viewModel.resumeInProgressDownloads()
-
-            // Fetch fresh server videos
+            // Only fetch fresh server videos.
+            // If you also want local/resume logic,
+            // call `downloadsVM.loadLocalDownloads()` etc. here as well.
             Task {
-                await viewModel.loadServerVideos(forCode: code, useCache: true)
+                await downloadsVM.loadServerVideos(forCode: code, useCache: true)
             }
         }
+        .navigationBarBackButtonHidden(true)
         // Present the player in full screen for a fully downloaded video
         .fullScreenCover(item: $selectedVideo) { video in
             VideoPlayerView(code: video.code, videoId: video.id)
@@ -124,7 +127,7 @@ struct DownloadList: View {
         .alert("Video Not Ready", isPresented: $showProcessingAlert) {
             Button("OK", role: .cancel) {
                 Task {
-                    await viewModel.loadServerVideos(forCode: code, useCache: false)
+                    await downloadsVM.loadServerVideos(forCode: code, useCache: false)
                 }
             }
         } message: {

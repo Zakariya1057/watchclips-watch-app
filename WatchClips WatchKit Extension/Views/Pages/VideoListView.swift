@@ -81,10 +81,7 @@ struct VideoListView: View {
                         .onDelete(perform: deleteVideo)
                     }
                     
-                    if !isLoading {
-                        // Logout button at the bottom
-                        logoutButton
-                    }
+                    logoutButton
                 }
                 .listStyle(.plain)
                 .onAppear {

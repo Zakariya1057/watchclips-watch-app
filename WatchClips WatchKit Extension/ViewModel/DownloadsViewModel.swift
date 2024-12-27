@@ -16,7 +16,6 @@ protocol SegmentedDownloadManagerDelegate: AnyObject {
 }
 
 // MARK: - DownloadsViewModel
-
 @MainActor
 class DownloadsViewModel: ObservableObject {
     // MARK: - Published Properties
@@ -243,14 +242,17 @@ extension DownloadsViewModel: SegmentedDownloadManagerDelegate {
     func segmentedDownloadDidComplete(videoId: String, fileURL: URL) {
         Task { @MainActor in
             print("[DownloadsViewModel] [Segmented] \(videoId) => Completed, file: \(fileURL.lastPathComponent)")
-            updateStatus(videoId, status: .completed)
+            updateStatus(videoId, status: .completed, receivedBytes: nil, totalBytes: nil)
             
-            // Optionally trigger a local notification:
+            // Optionally trigger a local notification WITH the full `Video` object
             if let item = videos.first(where: { $0.id == videoId }) {
                 let title = item.video.title ?? "(Untitled)"
+                
+                // NEW: Pass the entire `Video` to NotificationManager
                 NotificationManager.shared.scheduleLocalNotification(
                     title: title,
-                    body: "Your video is ready to watch!"
+                    body: "Your video is ready to watch!",
+                    video: item.video  // <-- Passing the full Video here
                 ) { success in
                     print("[DownloadsViewModel] Notification scheduled? \(success)")
                 }

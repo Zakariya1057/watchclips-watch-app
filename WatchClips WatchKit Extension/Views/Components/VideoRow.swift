@@ -80,7 +80,7 @@ struct VideoRow: View {
                                 .foregroundColor(.white)
                                 .font(.headline)
                         }
-                        .frame(width: .infinity, height: 150)
+                        .frame(maxWidth: .infinity, minHeight: 150, maxHeight: 150)
                     } else {
                         // Fallback: simple spinner + message
                         VStack(spacing: 0) { // <— Set spacing to whatever smaller value you want
@@ -88,18 +88,18 @@ struct VideoRow: View {
                                 .progressViewStyle(
                                     CircularProgressViewStyle(tint: statusInfo.color)
                                 )
-                                .frame(width: .infinity, height: 10)
+                                .frame(maxWidth: .infinity, minHeight: 10, maxHeight: 10)
                                 .padding(.bottom, 10)
                             
                             Text(statusInfo.message)
                                 .foregroundColor(.white)
                                 .font(.headline)
                         }
-                        .frame(width: .infinity, height: 150)
+                        .frame(maxWidth: .infinity, minHeight: 150, maxHeight: 150)
                     }
                 }
             }
-            .frame(width: .infinity, height: 150)
+            .frame(maxWidth: .infinity, minHeight: 150, maxHeight: 150)
             
             // 3) Video info below
             VStack(alignment: .leading, spacing: 6) {
