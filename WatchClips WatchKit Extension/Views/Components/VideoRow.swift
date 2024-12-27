@@ -14,6 +14,8 @@ struct VideoRow: View {
         // Early or mid processing
         case .preProcessing, .processing, .chunking, .processingChunk:
             return ("Optimizing...", .blue, true)
+        case .finalizing:
+            return ("Finalizing...", .orange, true)
         // Late processing
         case .chunkingComplete, .chunkProcessed:
             return ("Almost done...", .blue, true)

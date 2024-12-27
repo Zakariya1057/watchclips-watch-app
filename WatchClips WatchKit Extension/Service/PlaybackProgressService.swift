@@ -1,10 +1,3 @@
-//
-//  PlaybackProgressService.swift
-//  WatchClips
-//
-//  Created by Zakariya Hassan on 25/12/2024.
-//
-
 import Foundation
 
 final class PlaybackProgressService {
@@ -12,32 +5,60 @@ final class PlaybackProgressService {
     
     private let userDefaults = UserDefaults.standard
     
-    private func key(forVideoId videoId: String) -> String {
+    private func progressKey(forVideoId videoId: String) -> String {
         return "PlaybackProgress-\(videoId)"
     }
     
+    private func timestampKey(forVideoId videoId: String) -> String {
+        return "PlaybackTimestamp-\(videoId)"
+    }
+    
+    /// Return the stored playback progress for a video
     func getProgress(for videoId: String) -> Double? {
-        let progress = userDefaults.double(forKey: key(forVideoId: videoId))
-        return userDefaults.object(forKey: key(forVideoId: videoId)) == nil ? nil : progress
+        let key = progressKey(forVideoId: videoId)
+        return userDefaults.object(forKey: key) == nil ? nil : userDefaults.double(forKey: key)
     }
     
+    /// Store both progress and a 'last updated' timestamp
     func setProgress(_ progress: Double, for videoId: String) {
-        userDefaults.set(progress, forKey: key(forVideoId: videoId))
+        userDefaults.set(progress, forKey: progressKey(forVideoId: videoId))
+        let timestamp = Date().timeIntervalSince1970
+        userDefaults.set(timestamp, forKey: timestampKey(forVideoId: videoId))
     }
     
+    /// Clear a single video's progress
     func clearProgress(for videoId: String) {
-        userDefaults.removeObject(forKey: key(forVideoId: videoId))
+        userDefaults.removeObject(forKey: progressKey(forVideoId: videoId))
+        userDefaults.removeObject(forKey: timestampKey(forVideoId: videoId))
     }
     
-   func clearAllProgress() {
-        let defaults = UserDefaults.standard
-        
-        // Loop through all keys in UserDefaults
-        for key in defaults.dictionaryRepresentation().keys {
-            // If it has our prefix, remove it
-            if key.hasPrefix("PlaybackProgress-") {
-                defaults.removeObject(forKey: key)
+    /// Clear progress for all videos
+    func clearAllProgress() {
+        for key in userDefaults.dictionaryRepresentation().keys {
+            if key.hasPrefix("PlaybackProgress-") || key.hasPrefix("PlaybackTimestamp-") {
+                userDefaults.removeObject(forKey: key)
             }
         }
+    }
+    
+    /// Get the video ID with the most recent timestamp
+    func getMostRecentlyUpdatedVideoId() -> String? {
+        let allKeys = userDefaults.dictionaryRepresentation().keys
+        
+        let timestampKeys = allKeys.filter { $0.hasPrefix("PlaybackTimestamp-") }
+        
+        var mostRecentVideoId: String?
+        var mostRecentTimestamp: TimeInterval = 0
+        
+        for key in timestampKeys {
+            let videoId = key.replacingOccurrences(of: "PlaybackTimestamp-", with: "")
+            let timestamp = userDefaults.double(forKey: key)
+            if timestamp > mostRecentTimestamp {
+                mostRecentTimestamp = timestamp
+                mostRecentVideoId = videoId
+            }
+        }
+        
+        return mostRecentVideoId
     }
 }

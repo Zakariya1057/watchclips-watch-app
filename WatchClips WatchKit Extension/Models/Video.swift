@@ -12,6 +12,7 @@ enum VideoStatus: String, Codable {
     case processingChunk = "PROCESSING_CHUNK"
     case chunkProcessed = "CHUNK_PROCESSED"
     case chunkProcessingFailure = "CHUNK_PROCESSING_FAILURE"
+    case finalizing = "FINALIZING"
 }
 
 struct Video: Identifiable, Codable, Equatable {

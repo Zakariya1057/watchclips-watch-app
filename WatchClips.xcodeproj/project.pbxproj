@@ -17,6 +17,7 @@
 		365ACC002D1738510078A6A4 /* DownloadRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365ACBFF2D1738510078A6A4 /* DownloadRow.swift */; };
 		365E78762D1C8A9100A6DE13 /* PlaybackProgressService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365E78752D1C8A9100A6DE13 /* PlaybackProgressService.swift */; };
 		367907862D1F2A9500AE02EA /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367907852D1F2A9500AE02EA /* AppState.swift */; };
+		367907892D1F4F8200AE02EA /* MinimalLargeButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367907882D1F4F8200AE02EA /* MinimalLargeButtonStyle.swift */; };
 		36918DBD2D1B3FC7008FB158 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36918DBC2D1B3FC7008FB158 /* NotificationManager.swift */; };
 		36D977972D14C63500A8C717 /* WatchClipsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D977942D14C63500A8C717 /* WatchClipsApp.swift */; };
 		36D977982D14C63500A8C717 /* MediaData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D9777A2D14C63500A8C717 /* MediaData.swift */; };
@@ -99,6 +100,7 @@
 		365ACBFF2D1738510078A6A4 /* DownloadRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadRow.swift; sourceTree = "<group>"; };
 		365E78752D1C8A9100A6DE13 /* PlaybackProgressService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackProgressService.swift; sourceTree = "<group>"; };
 		367907852D1F2A9500AE02EA /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		367907882D1F4F8200AE02EA /* MinimalLargeButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinimalLargeButtonStyle.swift; sourceTree = "<group>"; };
 		36918DBC2D1B3FC7008FB158 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		36D977792D14C63500A8C717 /* Code.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Code.swift; sourceTree = "<group>"; };
 		36D9777A2D14C63500A8C717 /* MediaData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaData.swift; sourceTree = "<group>"; };
@@ -169,6 +171,14 @@
 				365ACBFB2D16D7100078A6A4 /* SingleStreamDownloadDelegate.swift */,
 			);
 			path = Protocols;
+			sourceTree = "<group>";
+		};
+		367907872D1F4F7E00AE02EA /* Styles */ = {
+			isa = PBXGroup;
+			children = (
+				367907882D1F4F8200AE02EA /* MinimalLargeButtonStyle.swift */,
+			);
+			path = Styles;
 			sourceTree = "<group>";
 		};
 		36D9777C2D14C63500A8C717 /* Models */ = {
@@ -261,6 +271,7 @@
 				36D977872D14C63500A8C717 /* ViewModel */,
 				365ACBFA2D16D70B0078A6A4 /* Protocols */,
 				36D977922D14C63500A8C717 /* Views */,
+				367907872D1F4F7E00AE02EA /* Styles */,
 				36D977932D14C63500A8C717 /* ContentView.swift */,
 				36D977942D14C63500A8C717 /* WatchClipsApp.swift */,
 				BA68BF032521444A0097D162 /* Assets.xcassets */,
@@ -425,6 +436,7 @@
 				36D977A32D14C63500A8C717 /* VideoService.swift in Sources */,
 				365ACBF12D16C1200078A6A4 /* DownloadsViewModel.swift in Sources */,
 				365E78762D1C8A9100A6DE13 /* PlaybackProgressService.swift in Sources */,
+				367907892D1F4F8200AE02EA /* MinimalLargeButtonStyle.swift in Sources */,
 				367907862D1F2A9500AE02EA /* AppState.swift in Sources */,
 				36D977A42D14C63500A8C717 /* VideoDownloadManager.swift in Sources */,
 				365ACBE62D16BAB00078A6A4 /* DownloadList.swift in Sources */,

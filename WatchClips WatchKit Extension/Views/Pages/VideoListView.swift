@@ -42,6 +42,7 @@ struct VideoListView: View {
                 // - Logout button
                 List {
                     downloadsLink
+                    continueWatching
                     
                     if isLoading {
                         // Show a loading row
@@ -158,15 +159,53 @@ struct VideoListView: View {
     
     // MARK: - Subviews / Rows
     
-    /// NavigationLink to the Downloads screen (always visible in the List).
     private var downloadsLink: some View {
         NavigationLink(destination: DownloadList(code: code)) {
-            Text("Downloads")
-                .font(.headline)
-                .frame(maxWidth: .infinity, alignment: .center)
+            HStack(alignment: .center, spacing: 8) {
+                Text("Downloads")
+                    .font(.headline)
+                
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.system(size: 24, weight: .bold))
+            }
+            // Stretch across the screen and add uniform padding
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 16)
         }
         .onAppear {
             notificationManager.requestAuthorization()
+        }
+    }
+
+    private var continueWatching: some View {
+        Group {
+            if let latestVideoId = PlaybackProgressService.shared.getMostRecentlyUpdatedVideoId(),
+               let matchingVideo = videos.first(where: { $0.id == latestVideoId }) {
+                
+                Button {
+                    if matchingVideo.status == .postProcessingSuccess {
+                        selectedVideo = matchingVideo
+                    } else {
+                        showProcessingAlert = true
+                    }
+                } label: {
+                    HStack(alignment: .center, spacing: 8) {
+                        Text("Continue")
+                            .font(.headline)
+                        
+                        Image(systemName: "play.circle.fill")
+                            .font(.system(size: 24, weight: .bold))
+                    }
+                    // Stretch across the screen and add uniform padding
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 16)
+                }
+                .buttonStyle(.automatic)
+            } else {
+                EmptyView()
+            }
         }
     }
     
