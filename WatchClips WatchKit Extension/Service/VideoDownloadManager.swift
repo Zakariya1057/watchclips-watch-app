@@ -24,6 +24,8 @@ struct DownloadProgress {
 /// pausing, and resuming from the partial offset.
 class VideoDownloadManager: NSObject {
     static let shared = VideoDownloadManager()
+    static let downloadStore = DownloadsStore()
+    
     private override init() {}
     
     // If you want to observe progress externally, you can publish changes here:
@@ -297,6 +299,7 @@ class VideoDownloadManager: NSObject {
     
     /// Remove final & partial files for a single code/videoId
     func deleteVideoFor(code: String, videoId: String) {
+        VideoDownloadManager.downloadStore.removeById(videoId: videoId)
         print("[VideoDownloadManager] deleteVideoFor called for code=\(code), videoId=\(videoId).")
         let finalURL = cachedFileURL(for: code, videoId: videoId)
         if FileManager.default.fileExists(atPath: finalURL.path) {

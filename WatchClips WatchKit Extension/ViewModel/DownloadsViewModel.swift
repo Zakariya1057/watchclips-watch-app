@@ -58,6 +58,10 @@ class DownloadsViewModel: ObservableObject {
     // MARK: - Server
     
     func loadServerVideos(forCode code: String, useCache: Bool = true) async {
+        // Changes needed -
+        // 1. The downloaded items not coming through in the correct order from the newest to latest
+        // 2. Videos deleted from remote are not being deleted from the local
+        
         isLoading = true
         defer { isLoading = false }
 

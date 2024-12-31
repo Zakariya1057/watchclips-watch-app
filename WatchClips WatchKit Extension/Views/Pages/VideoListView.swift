@@ -1,6 +1,4 @@
 import SwiftUI
-import Supabase
-import Network
 
 struct VideoListView: View {
     let code: String
@@ -34,37 +32,21 @@ struct VideoListView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // A single List that contains:
-                // - Downloads button (always visible in the list)
-                // - Loading row (if isLoading == true)
-                // - Empty/Error rows (if !isLoading && videos.isEmpty)
-                // - Video rows (if !isLoading && !videos.isEmpty)
-                // - Logout button
                 List {
                     downloadsLink
                     continueWatching
                     
                     if isLoading {
-                        // Show a loading row
-                        HStack {
-                            ProgressView("Loading videos...")
-                                .progressViewStyle(CircularProgressViewStyle())
-                                .padding()
-                        }
-                        .padding()
-                        .listRowBackground(Color.black)
+                        loadingRow
                     }
                     
-                    if videos.isEmpty {
-                        // Show empty/error state
+                    if videos.isEmpty && !isLoading {
                         emptyOrErrorStateRows
                     } else {
-                        // If offline, show an offline banner row
                         if isOffline {
                             offlineBannerRow
                         }
                         
-                        // Show the videos
                         ForEach(videos) { video in
                             VideoRow(video: video,
                                      isDownloaded: downloadStore.isDownloaded(videoId: video.id))
@@ -76,6 +58,7 @@ struct VideoListView: View {
                                         showProcessingAlert = true
                                     }
                                 }
+                                // Try to keep styling minimal for performance
                                 .listRowBackground(Color(.black))
                                 .listRowInsets(EdgeInsets(top: 0, leading: 10, bottom: 10, trailing: 10))
                         }
@@ -89,35 +72,21 @@ struct VideoListView: View {
                     loadVideos()
                 }
                 .onReceive(networkMonitor.$isConnected) { isConnected in
-                    if isConnected && isOffline && !isInitialLoad {
+                    if isConnected, isOffline, !isInitialLoad {
                         Task {
                             await handleRefresh()
                         }
                     }
                 }
                 
-                // Show overlay while deleting videos
                 if isDeletingAll {
-                    Color.black.opacity(0.5)
-                        .ignoresSafeArea()
-                    VStack(spacing: 16) {
-                        ProgressView("Deleting videos...")
-                            .progressViewStyle(CircularProgressViewStyle())
-                            .padding()
-                        Text("Please wait while we remove all downloaded content.")
-                            .font(.footnote)
-                            .foregroundColor(.white)
-                    }
-                    .padding()
-                    .background(Color.black.opacity(0.7))
-                    .cornerRadius(8)
+                    deletingOverlay
                 }
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Text("Code: " + loggedInCode)
                         .font(.headline)
-                        .foregroundColor(.primary)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: {
@@ -157,8 +126,8 @@ struct VideoListView: View {
         }
     }
     
-    // MARK: - Subviews / Rows
-    
+    // MARK: - Subviews
+
     private var downloadsLink: some View {
         NavigationLink(destination: DownloadList(code: code)) {
             HStack(alignment: .center, spacing: 8) {
@@ -168,7 +137,6 @@ struct VideoListView: View {
                 Image(systemName: "arrow.down.circle.fill")
                     .font(.system(size: 24, weight: .bold))
             }
-            // Stretch across the screen and add uniform padding
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
             .padding(.horizontal, 16)
@@ -180,36 +148,42 @@ struct VideoListView: View {
 
     private var continueWatching: some View {
         Group {
-            if let latestVideoId = PlaybackProgressService.shared.getMostRecentlyUpdatedVideoId(),
-               let matchingVideo = videos.first(where: { $0.id == latestVideoId }) {
-                
+            if let latestVideoId = PlaybackProgressService.shared.getMostRecentlyUpdatedVideoId() {
                 Button {
-                    if matchingVideo.status == .postProcessingSuccess {
-                        selectedVideo = matchingVideo
-                    } else {
-                        showProcessingAlert = true
+                    if let matchingVideo = videos.first(where: { $0.id == latestVideoId }) {
+                        if matchingVideo.status == .postProcessingSuccess {
+                            selectedVideo = matchingVideo
+                        } else {
+                            showProcessingAlert = true
+                        }
                     }
                 } label: {
                     HStack(alignment: .center, spacing: 8) {
                         Text("Continue")
                             .font(.headline)
-                        
+
                         Image(systemName: "play.circle.fill")
                             .font(.system(size: 24, weight: .bold))
                     }
-                    // Stretch across the screen and add uniform padding
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
                     .padding(.horizontal, 16)
                 }
                 .buttonStyle(.automatic)
-            } else {
-                EmptyView()
             }
         }
     }
     
-    /// Rows shown when videos are empty or there's an error (but not loading).
+    private var loadingRow: some View {
+        HStack {
+            ProgressView("Loading videos...")
+                .progressViewStyle(CircularProgressViewStyle())
+                .padding()
+        }
+        .padding()
+        .listRowBackground(Color.black)
+    }
+    
     @ViewBuilder
     private var emptyOrErrorStateRows: some View {
         VStack(spacing: 16) {
@@ -222,7 +196,6 @@ struct VideoListView: View {
             if let error = errorMessage {
                 Text("Failed to load videos")
                     .font(.headline)
-                    .foregroundColor(.primary)
                 Text(error)
                     .font(.footnote)
                     .foregroundColor(.secondary)
@@ -237,7 +210,6 @@ struct VideoListView: View {
             } else {
                 Text("No Videos Found")
                     .font(.headline)
-                    .foregroundColor(.primary)
                 Text("Go on WatchClips.app and upload some videos to watch here.")
                     .font(.footnote)
                     .foregroundColor(.secondary)
@@ -248,14 +220,12 @@ struct VideoListView: View {
         .padding(.vertical, 20)
     }
     
-    /// Shows an offline banner row if we have no connectivity.
     private var offlineBannerRow: some View {
         HStack(spacing: 4) {
             Image(systemName: "wifi.slash")
                 .font(.caption2)
             Text("Offline - Showing Cached Videos")
                 .font(.caption2)
-                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(8)
@@ -268,7 +238,6 @@ struct VideoListView: View {
         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
     }
     
-    /// The logout button as a row in the list.
     private var logoutButton: some View {
         Section {
             Button(action: {
@@ -278,12 +247,28 @@ struct VideoListView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding()
-                    .cornerRadius(8)
             }
-            .padding()
         }
     }
-
+    
+    private var deletingOverlay: some View {
+        VStack {
+            Color.black.opacity(0.5)
+                .ignoresSafeArea()
+            VStack(spacing: 16) {
+                ProgressView("Deleting videos...")
+                    .progressViewStyle(CircularProgressViewStyle())
+                    .padding()
+                Text("Please wait while we remove all downloaded content.")
+                    .font(.footnote)
+                    .foregroundColor(.white)
+            }
+            .padding()
+            .background(Color.black.opacity(0.7))
+            .cornerRadius(8)
+        }
+    }
+    
     // MARK: - Methods
 
     private func loadVideos() {
@@ -371,22 +356,6 @@ struct VideoListView: View {
         }
     }
     
-    private func hasVideosChanged(_ newVideos: [Video]) -> Bool {
-        for video in newVideos {
-            let matchingVideo = videos.first { oldVideo in oldVideo.id == video.id }
-            
-            if let matchingVideo = matchingVideo {
-                if video != matchingVideo {
-                    return true
-                }
-            } else {
-                return true
-            }
-        }
-        
-        return false
-    }
-
     private func loadCachedVideos() -> [Video]? {
         cachedVideosService.loadCachedVideos()
     }
@@ -402,7 +371,6 @@ struct VideoListView: View {
                     await handleRefresh(forceRefresh: false)
                 } catch {
                     await MainActor.run {
-                        print(error)
                         errorMessage = error.localizedDescription
                         showErrorAlert = true
                     }

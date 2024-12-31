@@ -42,12 +42,13 @@ struct CachedAsyncImage<Content: View>: View {
                 content(Image(uiImage: uiImage))
                     .frame(height: 150)
             } else {
-                // Placeholder
                 Rectangle()
                     .fill(Color.gray.opacity(0.3))
                     .frame(height: 150)
-                    .task {
-                        await loadImageIfNeeded()
+                    .onAppear {
+                        Task {
+                            await loadImageIfNeeded()
+                        }
                     }
             }
         }
@@ -55,28 +56,26 @@ struct CachedAsyncImage<Content: View>: View {
 
     // MARK: - Image Loading
 
-    /// Loads the image if not already loaded.
     private func loadImageIfNeeded() async {
         guard !isLoading else { return }
         isLoading = true
 
-        // 1. Check In-Memory Cache (Actor-protected)
+        // 1. In-Memory Cache
         if let cached = await ImageMemoryCache.shared.image(for: url) {
             uiImage = cached
             isLoading = false
             return
         }
 
-        // 2. Check Disk Storage (Off Main Thread)
+        // 2. Disk Storage
         if let diskImage = await loadFromDisk() {
-            // Put in memory cache
             await ImageMemoryCache.shared.setImage(diskImage, for: url)
             uiImage = diskImage
             isLoading = false
             return
         }
 
-        // 3. Check URLCache (system’s cache)
+        // 3. URLCache
         if let image = await loadFromURLCache() {
             await ImageMemoryCache.shared.setImage(image, for: url)
             uiImage = image
@@ -84,12 +83,12 @@ struct CachedAsyncImage<Content: View>: View {
             return
         }
 
-        // 4. Fallback: Fetch From Network
+        // 4. Network
         let success = await fetchImageFromNetwork()
         if !success, attempts < maxRetries {
             attempts += 1
-            // Delay before retry
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            // Optional short delay to avoid spamming, but keep it small
+            try? await Task.sleep(nanoseconds: 300_000_000)
             isLoading = false
             await loadImageIfNeeded()
         } else {
@@ -97,7 +96,6 @@ struct CachedAsyncImage<Content: View>: View {
         }
     }
 
-    /// Attempt to load the image from system's `URLCache` for the given `url`.
     @MainActor
     private func loadFromURLCache() async -> UIImage? {
         let request = URLRequest(url: url)
@@ -108,24 +106,22 @@ struct CachedAsyncImage<Content: View>: View {
         return nil
     }
 
-    /// Fetch the image from network. Updates UI on success.
     @MainActor
     private func fetchImageFromNetwork() async -> Bool {
         let request = URLRequest(url: url)
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard let response = response as? HTTPURLResponse, response.statusCode == 200 else {
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
                 return false
             }
 
-            // Decode image off-main
             guard let newImage = await decodeImageData(data) else {
                 return false
             }
 
             // Cache in URLCache
-            let cachedData = CachedURLResponse(response: response, data: data)
+            let cachedData = CachedURLResponse(response: httpResponse, data: data)
             URLCache.shared.storeCachedResponse(cachedData, for: request)
 
             // Cache in memory
@@ -136,7 +132,6 @@ struct CachedAsyncImage<Content: View>: View {
                 await saveToDisk(image: newImage, url: url)
             }
 
-            // Update UI
             uiImage = newImage
             return true
         } catch {
@@ -146,9 +141,8 @@ struct CachedAsyncImage<Content: View>: View {
 
     // MARK: - Disk Storage
 
-    /// Reads the image from disk on a background thread.
     private func loadFromDisk() async -> UIImage? {
-        return await withCheckedContinuation { continuation in
+        await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .utility).async {
                 let fileURL = imageFileURL(for: url)
                 guard FileManager.default.fileExists(atPath: fileURL.path),
@@ -163,19 +157,18 @@ struct CachedAsyncImage<Content: View>: View {
         }
     }
 
-    /// Saves the image to disk on a background thread.
     private func saveToDisk(image: UIImage, url: URL) async {
         let fileURL = imageFileURL(for: url)
-        // Convert image to data (JPEG or PNG)
         guard let data = image.jpegData(compressionQuality: 0.9)
-            ?? image.pngData() else { return }
+                ?? image.pngData() else { return }
 
-        DispatchQueue.global(qos: .utility).async {
-            try? data.write(to: fileURL, options: [.atomic])
+        do {
+            try data.write(to: fileURL, options: [.atomic])
+        } catch {
+            // Handle disk write error if needed
         }
     }
 
-    /// Computes a hashed file name for storing the image to disk.
     private func imageFileURL(for url: URL) -> URL {
         let hashedName = sha256(url.absoluteString) + ".imgcache"
         let cachesURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
@@ -190,7 +183,6 @@ struct CachedAsyncImage<Content: View>: View {
 
     // MARK: - Image Decoding
 
-    /// Decodes image data off-main to avoid blocking the main thread.
     private func decodeImageData(_ data: Data) async -> UIImage? {
         await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .utility).async {

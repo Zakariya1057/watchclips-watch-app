@@ -1,36 +1,27 @@
 import Foundation
 
 class DownloadsStore {
-    private let userDefaultsKey = "downloads_info"
+    // Instead of userDefaultsKey, we have a repository
+    private let repository = DownloadsRepository.shared
 
-    /// Load `[DownloadedVideo]` from UserDefaults
+    /// Load `[DownloadedVideo]` from the Downloads table
     func loadDownloads() -> [DownloadedVideo] {
-        guard let data = UserDefaults.standard.data(forKey: userDefaultsKey) else {
-            return []
-        }
-        do {
-            let decoded = try JSONDecoder().decode([DownloadedVideo].self, from: data)
-            return decoded
-        } catch {
-            print("[DownloadsStore] decode error: \(error)")
-            return []
-        }
+        return repository.loadAll()
     }
     
-    /// Save `[DownloadedVideo]` to UserDefaults
+    /// Save `[DownloadedVideo]` to the Downloads table
     func saveDownloads(_ downloads: [DownloadedVideo]) {
-        do {
-            let data = try JSONEncoder().encode(downloads)
-            UserDefaults.standard.set(data, forKey: userDefaultsKey)
-        } catch {
-            print("[DownloadsStore] encode error: \(error)")
-        }
+        repository.saveAll(downloads)
+    }
+    
+    func removeById(videoId: String) -> Void {
+        return repository.removeById(videoId)
     }
 
     /// Clear all downloads from local storage
     func clearAllDownloads() {
-        UserDefaults.standard.removeObject(forKey: userDefaultsKey)
-        print("[DownloadsStore] Cleared all downloads from UserDefaults.")
+        repository.removeAll()
+        print("[DownloadsStore] Cleared all downloads in SQLite.")
     }
 }
 

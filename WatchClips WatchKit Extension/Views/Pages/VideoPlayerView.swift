@@ -48,17 +48,17 @@ struct VideoPlayerView: View {
     // MARK: - Body
     var body: some View {
         ZStack {
-            // Invisible tap target (Apple Watch uses .handGestureShortcut)
+            // Invisible tap target...
             Button {
                 isPlaying ? player?.pause() : player?.play()
             } label: { }
             .background(.purple)
             .frame(width: 60, height: 60)
-            .handGestureShortcut(.primaryAction)  // Apple Watch specific
+            .handGestureShortcut(.primaryAction)
             .opacity(0)
             .zIndex(0)
             
-            // Loading overlay
+            // Loading overlay...
             if isLoading && downloadError == nil {
                 ZStack {
                     Color.black
@@ -103,7 +103,7 @@ struct VideoPlayerView: View {
                         // 3) Replace current item => ensures audio truly stops
                         player.replaceCurrentItem(with: nil)
                         
-                        // 4) Release player (optional but recommended)
+                        // 4) Release player
                         self.player = nil
                         
                         // 5) Dismiss the view
@@ -160,13 +160,13 @@ struct VideoPlayerView: View {
         .onDisappear {
             statusObservation = nil
             
-            // Save final position one more time
+            // Save final position one more time (SQLite-based)
             if let p = player {
                 let currentTime = p.currentTime().seconds
-                PlaybackProgressService.shared.setProgress(currentTime, for: videoId)
+                PlaybackProgressService.shared.setProgress(videoId: videoId, progress: currentTime)
             }
             
-            // Extra caution: also remove time observer, pause, and nil out the player
+            // Clean up
             player?.pause()
             player?.replaceCurrentItem(with: nil)
             player = nil
@@ -191,7 +191,7 @@ struct VideoPlayerView: View {
         
         setupRemoteCommandCenter()
     }
-
+    
     private func setupPlayerForLocalFile(_ localURL: URL, fallbackToRemote: Bool) {
         let asset = AVURLAsset(url: localURL)
         asset.loadValuesAsynchronously(forKeys: ["playable"]) {
@@ -212,19 +212,19 @@ struct VideoPlayerView: View {
             }
         }
     }
-
+    
     private func setupPlayerForRemote(_ url: URL) {
         let playerItem = AVPlayerItem(url: url)
         initializePlayer(with: playerItem, restoreState: false)
     }
-
+    
     private func initializePlayer(with playerItem: AVPlayerItem, restoreState: Bool) {
         // Save last playback time from old player if needed
         if let existingPlayer = player {
             lastPlaybackTime = existingPlayer.currentTime().seconds
             wasPlayingBeforeSwitch = isPlaying
         }
-
+        
         // Release any existing
         player = nil
         
@@ -240,10 +240,10 @@ struct VideoPlayerView: View {
                     updatePlaybackStateIfReady()
                     updateNowPlayingInfo()
                     
-                    // Resume from saved time if any
-                    if let savedTime = PlaybackProgressService.shared.getProgress(for: videoId),
-                       savedTime > 0 {
-                        seekTo(time: savedTime, playIfNeeded: isPlaying)
+                    // Resume from saved time (SQLite-based)
+                    if let (progress, _) = PlaybackProgressService.shared.getProgress(videoId: videoId),
+                       progress > 0 {
+                        seekTo(time: progress, playIfNeeded: isPlaying)
                         player?.play()
                     }
                 case .failed:
@@ -274,12 +274,15 @@ struct VideoPlayerView: View {
             }
         }
         
-        // Periodic observer
+        // Periodic observer => saves progress (SQLite-based)
         timeObserverToken = newPlayer.addPeriodicTimeObserver(
             forInterval: CMTimeMake(value: 1, timescale: 1),
             queue: .main
         ) { _ in
-            PlaybackProgressService.shared.setProgress(newPlayer.currentTime().seconds, for: videoId)
+            PlaybackProgressService.shared.setProgress(
+                videoId: videoId,
+                progress: newPlayer.currentTime().seconds
+            )
             updateNowPlayingInfo()
         }
         
@@ -296,7 +299,7 @@ struct VideoPlayerView: View {
         
         configureAudioSession()
     }
-
+    
     private func configureAudioSession() {
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
@@ -305,7 +308,7 @@ struct VideoPlayerView: View {
             print("Failed to set audio session category: \(error)")
         }
     }
-
+    
     private func handlePlaybackError(_ error: Error?, attemptedURL: URL, fallbackToRemote: Bool) {
         if fallbackToRemote && attemptedURL != remoteURL {
             currentlyUsingLocal = false

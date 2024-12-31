@@ -2,37 +2,59 @@ import Foundation
 
 class CachedVideosService: ObservableObject {
     private let videosService: VideosService
-    private let cacheFileName: String = "cached_videos.json"
     
+    // Replace any file-related constants with a reference to our repository
+    private let repository = CachedVideosRepository.shared
+    
+    // Add a reference to DownloadsStore (assuming you want to remove from there too)
+    private let downloadsStore = DownloadsStore()
+
     init(videosService: VideosService) {
         self.videosService = videosService
     }
+    
+    // MARK: - Public API (Signatures Remain the Same)
 
+    /// Loads all cached videos from the SQLite DB
     func loadCachedVideos() -> [Video]? {
-        return loadFromCache()
+        let cached = repository.loadAllVideos()
+        return cached.isEmpty ? nil : cached
     }
     
     /// Tries to load videos from cache first. If none in cache or force refresh is needed, fetches from remote.
     func fetchVideos(forCode code: String, useCache: Bool = true) async throws -> [Video] {
-        // 1) Try loading from local cache first
+        // 1) Try loading from repository (local DB) first
         if useCache, let cached = loadCachedVideos(), !cached.isEmpty {
             // Return cached immediately
             let cachedResult = cached
-
-            // 2) Attempt a remote refresh in the background
+            
+            // 2) Attempt a remote refresh in background
             Task {
                 do {
                     let fresh = try await videosService.fetchVideos(forCode: code)
+                    
+                    // First, save or upsert the fresh videos to the cache
                     saveToCache(videos: fresh)
+                    
+                    // Then find which videos are missing in `fresh` but were in `cachedResult`
+                    let freshIDs = Set(fresh.map { $0.id })
+                    let cachedIDs = Set(cachedResult.map { $0.id })
+                    let removedIDs = cachedIDs.subtracting(freshIDs)
+                    
+                    // Remove from our local cache + downloads store
+                    for videoId in removedIDs {
+                        removeFromCache(id: videoId)
+                        downloadsStore.removeById(videoId: videoId)
+                    }
+                    
                 } catch {
-                    // If remote fetch fails, we stay with the cached data
                     print("[CachedVideosService] Remote fetch failed. Using cached.")
                 }
             }
             
             return cachedResult
         } else {
-            // 3) If no valid cache, fetch from the server directly
+            // 3) If no valid cache or ignoring cache, fetch from the server
             let fresh = try await videosService.fetchVideos(forCode: code)
             saveToCache(videos: fresh)
             return fresh
@@ -40,7 +62,9 @@ class CachedVideosService: ObservableObject {
     }
     
     public func fetchVideo(forCode code: String, forVideoId videoId: String) async throws -> Video? {
-        return try await fetchVideos(forCode: code, useCache: true).first {$0.id == videoId}
+        // Keep the same logic: fetch all, then find the one with the matching ID
+        let videos = try await fetchVideos(forCode: code, useCache: true)
+        return videos.first { $0.id == videoId }
     }
 
     /// Forces a refresh from remote, ignoring the cache. Throws error if offline.
@@ -52,59 +76,21 @@ class CachedVideosService: ObservableObject {
     
     /// Removes a video from the cache by its ID
     func removeFromCache(id: String) {
-        guard var cached = loadFromCache() else { return }
-        cached.removeAll { $0.id == id }
-        saveToCache(videos: cached)
+        // Instead of modifying an in-memory array + re-saving to JSON,
+        // we just tell the repository to delete by ID:
+        repository.removeVideoById(id)
     }
     
-    /// Deletes all cached videos by removing the cache file
+    /// Deletes all cached videos
     func clearCache() {
-        guard let url = cacheURL() else { return }
-        do {
-            try FileManager.default.removeItem(at: url)
-            print("[CachedVideosService] Cache cleared.")
-        } catch {
-            print("Failed to remove cache file: \(error)")
-        }
+        repository.removeAllVideos()
+        print("[CachedVideosService] Cache cleared.")
     }
 
-    // MARK: - Caching Logic
-    private func cacheURL() -> URL? {
-        do {
-            let documentsDirectory = try FileManager.default.url(for: .documentDirectory,
-                                                                 in: .userDomainMask,
-                                                                 appropriateFor: nil,
-                                                                 create: true)
-            return documentsDirectory.appendingPathComponent(cacheFileName)
-        } catch {
-            print("Failed to get documents directory: \(error)")
-            return nil
-        }
-    }
+    // MARK: - Internals
     
-    private func loadFromCache() -> [Video]? {
-        guard let url = cacheURL(),
-              let data = try? Data(contentsOf: url) else {
-            return nil
-        }
-        
-        do {
-            let videos = try JSONDecoder().decode([Video].self, from: data)
-            return videos
-        } catch {
-            print("Failed to decode cached videos: \(error)")
-            return nil
-        }
-    }
-
+    /// Saves an array of videos to the local DB (SQLite).
     private func saveToCache(videos: [Video]) {
-        guard let url = cacheURL() else { return }
-        
-        do {
-            let data = try JSONEncoder().encode(videos)
-            try data.write(to: url, options: [.atomic])
-        } catch {
-            print("Failed to save videos to cache: \(error)")
-        }
+        repository.saveVideos(videos)
     }
 }
