@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @AppStorage("loggedInCode") private var loggedInCode: String = ""
+    @AppStorage("loggedInState") private var loggedInStateData = Data()
     @StateObject private var appState = AppState.shared
 
     // Pull from environment (same singletons from MyWatchApp)
@@ -11,10 +11,10 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack {
-            if loggedInCode.isEmpty {
+            if loggedInStateData.isEmpty {
                 LoginView()
             } else {
-                VideoListView(code: loggedInCode)
+                VideoListView()
             }
         }
         .onAppear {

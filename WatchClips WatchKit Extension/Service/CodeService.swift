@@ -1,0 +1,21 @@
+//
+//  CodeService.swift
+//  WatchClips
+//
+//  Created by Zakariya Hassan on 31/12/2024.
+//
+import Supabase
+
+struct CodeService {
+    let client: SupabaseClient
+    
+    func fetchCode(byId id: String) async throws -> Code {
+        try await client
+            .from("codes")
+            .select()
+            .eq("id", value: id)
+            .single()
+            .execute()
+            .value
+    }
+}

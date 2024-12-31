@@ -159,7 +159,7 @@ struct CachedAsyncImage<Content: View>: View {
 
     private func saveToDisk(image: UIImage, url: URL) async {
         let fileURL = imageFileURL(for: url)
-        guard let data = image.jpegData(compressionQuality: 0.9)
+        guard let data = image.jpegData(compressionQuality: 0.1)
                 ?? image.pngData() else { return }
 
         do {

@@ -23,15 +23,29 @@
 		366C6B7C2D21F8FD00FA15E3 /* MarqueeTextLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366C6B7B2D21F8FD00FA15E3 /* MarqueeTextLoop.swift */; };
 		367907862D1F2A9500AE02EA /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367907852D1F2A9500AE02EA /* AppState.swift */; };
 		367907892D1F4F8200AE02EA /* MinimalLargeButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367907882D1F4F8200AE02EA /* MinimalLargeButtonStyle.swift */; };
+		367D83E62D2435E500D13EE0 /* UserSettingsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367D83E52D2435E500D13EE0 /* UserSettingsService.swift */; };
+		367D83E82D24362F00D13EE0 /* Plan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367D83E72D24362F00D13EE0 /* Plan.swift */; };
+		367D83EB2D24364700D13EE0 /* AnyDecodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367D83EA2D24364700D13EE0 /* AnyDecodable.swift */; };
+		367D83ED2D24365C00D13EE0 /* Subscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367D83EC2D24365C00D13EE0 /* Subscription.swift */; };
+		367D83EF2D2436E900D13EE0 /* SubscriptionWithPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367D83EE2D2436E900D13EE0 /* SubscriptionWithPlan.swift */; };
+		367D83F12D2439C900D13EE0 /* CodeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367D83F02D2439C900D13EE0 /* CodeService.swift */; };
+		367D83F32D2439D300D13EE0 /* Code.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367D83F22D2439D300D13EE0 /* Code.swift */; };
+		367D83F52D243EBF00D13EE0 /* LoggedInState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367D83F42D243EBF00D13EE0 /* LoggedInState.swift */; };
+		367D83F82D243F0C00D13EE0 /* AppStorage+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367D83F72D243EE200D13EE0 /* AppStorage+Extensions.swift */; };
+		367D83FA2D24408000D13EE0 /* DecodeLoggedInState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367D83F92D24407C00D13EE0 /* DecodeLoggedInState.swift */; };
+		367D83FC2D24455C00D13EE0 /* PlanBadgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367D83FB2D24455C00D13EE0 /* PlanBadgeView.swift */; };
+		367D83FE2D244BCA00D13EE0 /* UserSettingsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367D83FD2D244BCA00D13EE0 /* UserSettingsRepository.swift */; };
+		367D84012D244C0100D13EE0 /* CachedUserSettingsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367D84002D244C0100D13EE0 /* CachedUserSettingsService.swift */; };
+		367D84032D244D7C00D13EE0 /* PlanFeatures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367D84022D244D7C00D13EE0 /* PlanFeatures.swift */; };
+		367D84052D24521B00D13EE0 /* EncodeLoggedInState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367D84042D24521600D13EE0 /* EncodeLoggedInState.swift */; };
+		367D84072D2457D400D13EE0 /* PlanName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367D84062D2457D400D13EE0 /* PlanName.swift */; };
 		36918DBD2D1B3FC7008FB158 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36918DBC2D1B3FC7008FB158 /* NotificationManager.swift */; };
 		36D977972D14C63500A8C717 /* WatchClipsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D977942D14C63500A8C717 /* WatchClipsApp.swift */; };
-		36D977982D14C63500A8C717 /* MediaData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D9777A2D14C63500A8C717 /* MediaData.swift */; };
 		36D9779A2D14C63500A8C717 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D9778A2D14C63500A8C717 /* NetworkMonitor.swift */; };
 		36D9779B2D14C63500A8C717 /* Supabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D977822D14C63500A8C717 /* Supabase.swift */; };
 		36D9779D2D14C63500A8C717 /* VideoRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D9778F2D14C63500A8C717 /* VideoRow.swift */; };
 		36D9779E2D14C63500A8C717 /* CachedVideosService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D977812D14C63500A8C717 /* CachedVideosService.swift */; };
 		36D9779F2D14C63500A8C717 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D977932D14C63500A8C717 /* ContentView.swift */; };
-		36D977A12D14C63500A8C717 /* Code.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D977792D14C63500A8C717 /* Code.swift */; };
 		36D977A22D14C63500A8C717 /* Video.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D9777B2D14C63500A8C717 /* Video.swift */; };
 		36D977A32D14C63500A8C717 /* VideoService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D977842D14C63500A8C717 /* VideoService.swift */; };
 		36D977A42D14C63500A8C717 /* VideoDownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D9777F2D14C63500A8C717 /* VideoDownloadManager.swift */; };
@@ -111,9 +125,23 @@
 		366C6B7B2D21F8FD00FA15E3 /* MarqueeTextLoop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarqueeTextLoop.swift; sourceTree = "<group>"; };
 		367907852D1F2A9500AE02EA /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		367907882D1F4F8200AE02EA /* MinimalLargeButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinimalLargeButtonStyle.swift; sourceTree = "<group>"; };
+		367D83E52D2435E500D13EE0 /* UserSettingsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSettingsService.swift; sourceTree = "<group>"; };
+		367D83E72D24362F00D13EE0 /* Plan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Plan.swift; sourceTree = "<group>"; };
+		367D83EA2D24364700D13EE0 /* AnyDecodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnyDecodable.swift; sourceTree = "<group>"; };
+		367D83EC2D24365C00D13EE0 /* Subscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Subscription.swift; sourceTree = "<group>"; };
+		367D83EE2D2436E900D13EE0 /* SubscriptionWithPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionWithPlan.swift; sourceTree = "<group>"; };
+		367D83F02D2439C900D13EE0 /* CodeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeService.swift; sourceTree = "<group>"; };
+		367D83F22D2439D300D13EE0 /* Code.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Code.swift; sourceTree = "<group>"; };
+		367D83F42D243EBF00D13EE0 /* LoggedInState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggedInState.swift; sourceTree = "<group>"; };
+		367D83F72D243EE200D13EE0 /* AppStorage+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStorage+Extensions.swift"; sourceTree = "<group>"; };
+		367D83F92D24407C00D13EE0 /* DecodeLoggedInState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecodeLoggedInState.swift; sourceTree = "<group>"; };
+		367D83FB2D24455C00D13EE0 /* PlanBadgeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanBadgeView.swift; sourceTree = "<group>"; };
+		367D83FD2D244BCA00D13EE0 /* UserSettingsRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSettingsRepository.swift; sourceTree = "<group>"; };
+		367D84002D244C0100D13EE0 /* CachedUserSettingsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedUserSettingsService.swift; sourceTree = "<group>"; };
+		367D84022D244D7C00D13EE0 /* PlanFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanFeatures.swift; sourceTree = "<group>"; };
+		367D84042D24521600D13EE0 /* EncodeLoggedInState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncodeLoggedInState.swift; sourceTree = "<group>"; };
+		367D84062D2457D400D13EE0 /* PlanName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanName.swift; sourceTree = "<group>"; };
 		36918DBC2D1B3FC7008FB158 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
-		36D977792D14C63500A8C717 /* Code.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Code.swift; sourceTree = "<group>"; };
-		36D9777A2D14C63500A8C717 /* MediaData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaData.swift; sourceTree = "<group>"; };
 		36D9777B2D14C63500A8C717 /* Video.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Video.swift; sourceTree = "<group>"; };
 		36D9777F2D14C63500A8C717 /* VideoDownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoDownloadManager.swift; sourceTree = "<group>"; };
 		36D977812D14C63500A8C717 /* CachedVideosService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedVideosService.swift; sourceTree = "<group>"; };
@@ -168,6 +196,7 @@
 		365ACBE92D16BB450078A6A4 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				367D83FB2D24455C00D13EE0 /* PlanBadgeView.swift */,
 				366C6B792D21F83500FA15E3 /* MarqueeText.swift */,
 				366C6B7B2D21F8FD00FA15E3 /* MarqueeTextLoop.swift */,
 				36D977882D14C63500A8C717 /* CachedAsyncImage.swift */,
@@ -183,6 +212,7 @@
 				365F15172D21F311001DE9D7 /* PlaybackProgressRepository.swift */,
 				365F15192D21F384001DE9D7 /* CachedVideosRepository.swift */,
 				365F151B2D21F49D001DE9D7 /* DownloadsRepository.swift */,
+				367D83FD2D244BCA00D13EE0 /* UserSettingsRepository.swift */,
 			);
 			path = Repository;
 			sourceTree = "<group>";
@@ -195,12 +225,44 @@
 			path = Styles;
 			sourceTree = "<group>";
 		};
+		367D83E92D24364400D13EE0 /* Helper */ = {
+			isa = PBXGroup;
+			children = (
+				367D84042D24521600D13EE0 /* EncodeLoggedInState.swift */,
+				367D83F92D24407C00D13EE0 /* DecodeLoggedInState.swift */,
+				367D83EA2D24364700D13EE0 /* AnyDecodable.swift */,
+			);
+			path = Helper;
+			sourceTree = "<group>";
+		};
+		367D83F62D243EDA00D13EE0 /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				367D83F72D243EE200D13EE0 /* AppStorage+Extensions.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
+		367D83FF2D244BFD00D13EE0 /* Cache */ = {
+			isa = PBXGroup;
+			children = (
+				36D977812D14C63500A8C717 /* CachedVideosService.swift */,
+				367D84002D244C0100D13EE0 /* CachedUserSettingsService.swift */,
+			);
+			path = Cache;
+			sourceTree = "<group>";
+		};
 		36D9777C2D14C63500A8C717 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				367D83F42D243EBF00D13EE0 /* LoggedInState.swift */,
+				367D83EC2D24365C00D13EE0 /* Subscription.swift */,
+				367D83E72D24362F00D13EE0 /* Plan.swift */,
+				367D84022D244D7C00D13EE0 /* PlanFeatures.swift */,
 				365ACBEA2D16BD540078A6A4 /* DownloadedVideo.swift */,
-				36D977792D14C63500A8C717 /* Code.swift */,
-				36D9777A2D14C63500A8C717 /* MediaData.swift */,
+				367D84062D2457D400D13EE0 /* PlanName.swift */,
+				367D83EE2D2436E900D13EE0 /* SubscriptionWithPlan.swift */,
+				367D83F22D2439D300D13EE0 /* Code.swift */,
 				36D9777B2D14C63500A8C717 /* Video.swift */,
 			);
 			path = Models;
@@ -214,12 +276,14 @@
 				36918DBC2D1B3FC7008FB158 /* NotificationManager.swift */,
 				367907852D1F2A9500AE02EA /* AppState.swift */,
 				36D9778A2D14C63500A8C717 /* NetworkMonitor.swift */,
+				367D83FF2D244BFD00D13EE0 /* Cache */,
 				36D9777F2D14C63500A8C717 /* VideoDownloadManager.swift */,
+				367D83F02D2439C900D13EE0 /* CodeService.swift */,
 				365ACBF22D16CA6B0078A6A4 /* DownloadsStore.swift */,
+				367D83E52D2435E500D13EE0 /* UserSettingsService.swift */,
 				3618B16E2D1CB9C50093ACC1 /* SegmentedDownloadManagerDelegate.swift */,
 				3618B1702D1DF1410093ACC1 /* SessionManager.swift */,
 				365E78752D1C8A9100A6DE13 /* PlaybackProgressService.swift */,
-				36D977812D14C63500A8C717 /* CachedVideosService.swift */,
 				36D977822D14C63500A8C717 /* Supabase.swift */,
 				36D977842D14C63500A8C717 /* VideoService.swift */,
 			);
@@ -288,6 +352,8 @@
 				36D977922D14C63500A8C717 /* Views */,
 				367907872D1F4F7E00AE02EA /* Styles */,
 				36D977932D14C63500A8C717 /* ContentView.swift */,
+				367D83F62D243EDA00D13EE0 /* Extensions */,
+				367D83E92D24364400D13EE0 /* Helper */,
 				36D977942D14C63500A8C717 /* WatchClipsApp.swift */,
 				BA68BF032521444A0097D162 /* Assets.xcassets */,
 				BA68BF082521444A0097D162 /* Info.plist */,
@@ -434,37 +500,51 @@
 			buildActionMask = 2147483647;
 			files = (
 				36D977972D14C63500A8C717 /* WatchClipsApp.swift in Sources */,
+				367D83F82D243F0C00D13EE0 /* AppStorage+Extensions.swift in Sources */,
 				365F151C2D21F49D001DE9D7 /* DownloadsRepository.swift in Sources */,
-				36D977982D14C63500A8C717 /* MediaData.swift in Sources */,
+				367D83F12D2439C900D13EE0 /* CodeService.swift in Sources */,
 				36D9779A2D14C63500A8C717 /* NetworkMonitor.swift in Sources */,
+				367D83FA2D24408000D13EE0 /* DecodeLoggedInState.swift in Sources */,
 				365F151A2D21F384001DE9D7 /* CachedVideosRepository.swift in Sources */,
 				365ACBEB2D16BD540078A6A4 /* DownloadedVideo.swift in Sources */,
+				367D83ED2D24365C00D13EE0 /* Subscription.swift in Sources */,
 				36D9779B2D14C63500A8C717 /* Supabase.swift in Sources */,
+				367D83FC2D24455C00D13EE0 /* PlanBadgeView.swift in Sources */,
 				3618B1712D1DF1450093ACC1 /* SessionManager.swift in Sources */,
+				367D83F52D243EBF00D13EE0 /* LoggedInState.swift in Sources */,
 				36918DBD2D1B3FC7008FB158 /* NotificationManager.swift in Sources */,
 				366C6B7A2D21F83500FA15E3 /* MarqueeText.swift in Sources */,
 				36D9779D2D14C63500A8C717 /* VideoRow.swift in Sources */,
 				3618B16F2D1CB9C50093ACC1 /* SegmentedDownloadManagerDelegate.swift in Sources */,
 				365F15182D21F311001DE9D7 /* PlaybackProgressRepository.swift in Sources */,
+				367D83EF2D2436E900D13EE0 /* SubscriptionWithPlan.swift in Sources */,
+				367D83FE2D244BCA00D13EE0 /* UserSettingsRepository.swift in Sources */,
 				36D9779E2D14C63500A8C717 /* CachedVideosService.swift in Sources */,
 				36D9779F2D14C63500A8C717 /* ContentView.swift in Sources */,
-				36D977A12D14C63500A8C717 /* Code.swift in Sources */,
 				365ACC002D1738510078A6A4 /* DownloadRow.swift in Sources */,
+				367D84032D244D7C00D13EE0 /* PlanFeatures.swift in Sources */,
 				36D977A22D14C63500A8C717 /* Video.swift in Sources */,
 				36D977A32D14C63500A8C717 /* VideoService.swift in Sources */,
+				367D83EB2D24364700D13EE0 /* AnyDecodable.swift in Sources */,
 				365ACBF12D16C1200078A6A4 /* DownloadsViewModel.swift in Sources */,
 				365E78762D1C8A9100A6DE13 /* PlaybackProgressService.swift in Sources */,
+				367D84072D2457D400D13EE0 /* PlanName.swift in Sources */,
 				367907892D1F4F8200AE02EA /* MinimalLargeButtonStyle.swift in Sources */,
+				367D83E62D2435E500D13EE0 /* UserSettingsService.swift in Sources */,
 				367907862D1F2A9500AE02EA /* AppState.swift in Sources */,
+				367D83F32D2439D300D13EE0 /* Code.swift in Sources */,
 				36D977A42D14C63500A8C717 /* VideoDownloadManager.swift in Sources */,
 				365ACBE62D16BAB00078A6A4 /* DownloadList.swift in Sources */,
 				36D977A52D14C63500A8C717 /* VideoListView.swift in Sources */,
 				36D977A62D14C63500A8C717 /* VideoPlayerView.swift in Sources */,
 				365F15152D21F0A7001DE9D7 /* DatabaseHelper.swift in Sources */,
+				367D84012D244C0100D13EE0 /* CachedUserSettingsService.swift in Sources */,
 				36D977A72D14C63500A8C717 /* CachedAsyncImage.swift in Sources */,
+				367D83E82D24362F00D13EE0 /* Plan.swift in Sources */,
 				36D977A92D14C63500A8C717 /* LoginView.swift in Sources */,
 				365ACBF32D16CA6B0078A6A4 /* DownloadsStore.swift in Sources */,
 				366C6B7C2D21F8FD00FA15E3 /* MarqueeTextLoop.swift in Sources */,
+				367D84052D24521B00D13EE0 /* EncodeLoggedInState.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

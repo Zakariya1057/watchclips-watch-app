@@ -27,6 +27,12 @@ struct VideoPlayerView: View {
     private var sessionManager: SessionManager = SessionManager()
     private let videosService = CachedVideosService(videosService: VideosService(client: supabase))
     
+    @AppStorage("loggedInState") private var loggedInStateData = Data()
+    
+    private var planName: PlanName {
+        decodeLoggedInState(from: loggedInStateData)?.planName ?? .free
+    }
+    
     // For saving and resuming
     @State private var timeObserverToken: Any?
     
@@ -240,11 +246,12 @@ struct VideoPlayerView: View {
                     updatePlaybackStateIfReady()
                     updateNowPlayingInfo()
                     
-                    // Resume from saved time (SQLite-based)
-                    if let (progress, _) = PlaybackProgressService.shared.getProgress(videoId: videoId),
-                       progress > 0 {
-                        seekTo(time: progress, playIfNeeded: isPlaying)
-                        player?.play()
+                    if planName == .pro {
+                        if let (progress, _) = PlaybackProgressService.shared.getProgress(videoId: videoId),
+                           progress > 0 {
+                            seekTo(time: progress, playIfNeeded: isPlaying)
+                            player?.play()
+                        }
                     }
                 case .failed:
                     handlePlaybackError(

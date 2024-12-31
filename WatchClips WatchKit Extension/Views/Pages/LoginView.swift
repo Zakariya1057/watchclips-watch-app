@@ -1,46 +1,21 @@
 import SwiftUI
 import Supabase
 
-struct CodeItem: Decodable, Identifiable {
-    let id: String
-    let ipAddress: String?
-    let expiresAt: Date?
-    let lastAccessedAt: Date
-    let accessCount: Int
-    let createdAt: Date
-    
-    enum CodingKeys: String, CodingKey {
-        case id
-        case ipAddress = "ip_address"
-        case expiresAt = "expires_at"
-        case lastAccessedAt = "last_accessed_at"
-        case accessCount = "access_count"
-        case createdAt = "created_at"
-    }
-}
-
-struct CodesService {
-    let client: SupabaseClient
-    
-    func fetchCode(byId id: String) async throws -> CodeItem {
-        try await client
-            .from("codes")
-            .select()
-            .eq("id", value: id)
-            .single()
-            .execute()
-            .value
-    }
-}
-
 struct LoginView: View {
     @State private var code = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
-    @AppStorage("loggedInCode") private var loggedInCode: String = ""
-    
-    private var codesService: CodesService {
-        CodesService(client: supabase)
+
+    // Instead of just storing the code string, we store the entire state as Data
+    @AppStorage("loggedInState") private var loggedInStateData = Data()
+
+    private var codesService: CodeService {
+        CodeService(client: supabase)
+    }
+
+    // Access your userSettingsService to fetch plan info
+    private var userSettingsService: UserSettingsService {
+        UserSettingsService(client: supabase)
     }
 
     var body: some View {
@@ -51,7 +26,7 @@ struct LoginView: View {
                         .textInputAutocapitalization(.characters)
                         .autocorrectionDisabled()
                 }
-                
+
                 Section {
                     Button(action: signInButtonTapped) {
                         HStack {
@@ -67,12 +42,12 @@ struct LoginView: View {
             }
             .navigationTitle("WatchClips")
             .navigationBarTitleDisplayMode(.inline)
-            
+
             // Full-screen loading overlay
             if isLoading {
                 Color.black.opacity(0.4)
-                    .ignoresSafeArea() // Covers the entire screen
-                    
+                    .ignoresSafeArea()
+
                 ProgressView("Checking code...")
                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     .padding()
@@ -85,14 +60,13 @@ struct LoginView: View {
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil } }
         )) {
-            Button("Close", role: .cancel) {
-                // Just close the alert
-            }
+            Button("Close", role: .cancel) { }
         } message: {
             Text(errorMessage ?? "An unknown error occurred.")
         }
     }
 
+    /// Invoked when the user taps “Login.”
     func signInButtonTapped() {
         Task {
             isLoading = true
@@ -100,27 +74,51 @@ struct LoginView: View {
             defer { isLoading = false }
 
             do {
+                // 1) Fetch the Code record from the DB
                 let codeRecord = try await codesService.fetchCode(byId: code)
                 print("Code found: \(codeRecord.id)")
-                loggedInCode = code
-            } catch {
-                // Attempt to handle known errors first
-                if let urlError = error as? URLError {
-                    switch urlError.code {
-                    case .notConnectedToInternet:
-                        errorMessage = "No internet connection. Please check your network and try again."
-                    case .timedOut:
-                        errorMessage = "The request timed out. Please try again later."
-                    case .cannotFindHost, .cannotConnectToHost:
-                        errorMessage = "Unable to reach the server. Please try again."
-                    default:
-                        errorMessage = "A network error occurred. Please try again."
+                
+                // 2) If codeRecord.userId is set, fetch the plan for that user
+                var planName: PlanName? = nil
+                if let userUUID = codeRecord.userId {
+                    // Safely try fetching the plan
+                    if let plan = try? await userSettingsService.fetchActivePlan(forUserId: userUUID) {
+                        planName = plan.name
                     }
-                } else {
-                    // If it's not a URLError, handle it as a generic error
-                    errorMessage = "Code not found, try again by looking at the code on the WatchClips website."
                 }
+
+                // 3) Build a new LoggedInState with code, userId, planName
+                let newState = LoggedInState(
+                    code: codeRecord.id,
+                    userId: codeRecord.userId,
+                    planName: planName
+                )
+
+                // 4) Encode into Data, store in @AppStorage
+                let encoded = try JSONEncoder().encode(newState)
+                loggedInStateData = encoded
+
+            } catch {
+                print(error)
+                handleError(error)
             }
+        }
+    }
+
+    private func handleError(_ error: Error) {
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .notConnectedToInternet:
+                errorMessage = "No internet connection. Please check your network and try again."
+            case .timedOut:
+                errorMessage = "The request timed out. Please try again later."
+            case .cannotFindHost, .cannotConnectToHost:
+                errorMessage = "Unable to reach the server. Please try again."
+            default:
+                errorMessage = "A network error occurred. Please try again."
+            }
+        } else {
+            errorMessage = "Code not found, or invalid. Try again, checking the code from WatchClips website."
         }
     }
 }
