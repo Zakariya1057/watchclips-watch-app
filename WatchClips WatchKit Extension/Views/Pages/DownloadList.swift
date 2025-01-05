@@ -120,7 +120,7 @@ struct DownloadList: View {
         .navigationBarBackButtonHidden(true)
         // Present the player in full screen for a fully downloaded video
         .fullScreenCover(item: $selectedVideo) { video in
-            VideoPlayerView(code: video.code, videoId: video.id)
+            VideoPlayerView(code: video.code, videoId: video.id, filename: video.filename)
                 .ignoresSafeArea()
         }
         // Alert if the user tries to download/play a video that's still processing

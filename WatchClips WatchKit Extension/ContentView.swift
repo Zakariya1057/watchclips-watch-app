@@ -22,7 +22,7 @@ struct ContentView: View {
             downloadViewModel.resumeInProgressDownloads()
         }
         .fullScreenCover(item: $appState.selectedVideo) { video in
-            VideoPlayerView(code: video.code, videoId: video.id)
+            VideoPlayerView(code: video.code, videoId: video.id, filename: video.filename)
                 .ignoresSafeArea()
         }
     }

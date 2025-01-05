@@ -14,9 +14,6 @@ struct VideoListView: View {
     // NEW: Access your userSettingsService from the environment
     @EnvironmentObject private var mainUserSettingsService: UserSettingsService
     
-    // NEW: Store the fetched plan in local state
-    @State private var plan: Plan?
-    
     @State private var videos: [Video] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
@@ -35,6 +32,8 @@ struct VideoListView: View {
     
     var downloadStore: DownloadsStore = DownloadsStore()
     
+    @State private var pageLoaded = false
+    
     // We can keep these local services for Videos (though you’re also storing them in MyWatchApp)
     private var videosService: VideosService {
         VideosService(client: supabase)
@@ -44,14 +43,13 @@ struct VideoListView: View {
         CachedVideosService(videosService: videosService)
     }
     
+    private var activePlan: Plan? {
+        return decodeLoggedInState(from: loggedInStateData)?.activePlan
+    }
+    
     /// Computed property that extracts the `code` from the loggedInState (if present).
     private var code: String {
         decodeLoggedInState(from: loggedInStateData)?.code ?? ""
-    }
-    
-    /// Old planName from loggedInState (used as fallback or until fresh plan is fetched)
-    private var fallbackPlanName: PlanName {
-        decodeLoggedInState(from: loggedInStateData)?.planName ?? .free
     }
 
     var body: some View {
@@ -90,17 +88,19 @@ struct VideoListView: View {
                             .listRowBackground(Color(.black))
                             .listRowInsets(EdgeInsets(top: 0, leading: 10, bottom: 10, trailing: 10))
                         }
-                        .onDelete(perform: deleteVideo)
                     }
                     
                     logoutButton
                 }
                 .listStyle(.plain)
                 .onAppear {
-                    Task {
-                        // Fetch the latest plan, then load videos
-                        await fetchPlan()
-                        loadVideos()
+                    if !pageLoaded {
+                        Task {
+                            // Fetch the latest plan, then load videos
+                            await fetchPlan()
+                            loadVideos()
+                            pageLoaded = true
+                        }
                     }
                 }
                 .onReceive(networkMonitor.$isConnected) { isConnected in
@@ -118,7 +118,7 @@ struct VideoListView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     // Display the freshly fetched plan name if available, else fallback
-                    PlanBadgeView(planName: plan?.name ?? fallbackPlanName)
+                    PlanBadgeView(planName: activePlan?.name ?? .free)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: {
@@ -151,7 +151,7 @@ struct VideoListView: View {
                 Text("Optimizing video for Apple Watch. Please wait...")
             }
             .fullScreenCover(item: $selectedVideo) { video in
-                VideoPlayerView(code: video.code, videoId: video.id)
+                VideoPlayerView(code: video.code, videoId: video.id, filename: video.filename)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .ignoresSafeArea()
             }
@@ -180,7 +180,7 @@ struct VideoListView: View {
 
     private var continueWatching: some View {
         Group {
-            if let resume = plan?.features?.resumeFeature, resume == true {
+            if let resume = activePlan?.features?.resumeFeature, resume == true {
                 // Example: show if there's a resumed video. You could also gate behind plan?.features?.resumeFeature if you want
                 if PlaybackProgressService.shared.getMostRecentlyUpdatedVideoId() != nil {
                     Button {
@@ -319,12 +319,10 @@ struct VideoListView: View {
                 
                 // 3) Update our local @State property
                 await MainActor.run {
-                    self.plan = freshPlan
-                    
                     // --- Update the loggedInStateData here ---
                     if var currentState = decodeLoggedInState(from: loggedInStateData) {
                         // E.g., update planName to reflect the new plan (or fallback to "Free")
-                        currentState.planName = freshPlan?.name ?? .free
+                        currentState.activePlan = freshPlan
                         
                         // Re-encode and store it back
                         if let newData = encodeLoggedInState(currentState) {

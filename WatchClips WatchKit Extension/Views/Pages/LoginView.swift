@@ -79,19 +79,16 @@ struct LoginView: View {
                 print("Code found: \(codeRecord.id)")
                 
                 // 2) If codeRecord.userId is set, fetch the plan for that user
-                var planName: PlanName? = nil
+                var plan: Plan? = nil
                 if let userUUID = codeRecord.userId {
-                    // Safely try fetching the plan
-                    if let plan = try? await userSettingsService.fetchActivePlan(forUserId: userUUID) {
-                        planName = plan.name
-                    }
+                    plan = try? await userSettingsService.fetchActivePlan(forUserId: userUUID)
                 }
 
                 // 3) Build a new LoggedInState with code, userId, planName
                 let newState = LoggedInState(
                     code: codeRecord.id,
                     userId: codeRecord.userId,
-                    planName: planName
+                    activePlan: plan
                 )
 
                 // 4) Encode into Data, store in @AppStorage

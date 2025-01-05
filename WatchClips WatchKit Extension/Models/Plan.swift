@@ -1,7 +1,7 @@
 import Foundation
 
 /// This struct maps to your `plans` table row.
-struct Plan: Identifiable, Codable {
+struct Plan: Equatable, Identifiable, Codable {
     let id: Int
     let name: PlanName
     let monthlyPriceCents: Int

@@ -32,13 +32,40 @@ struct DownloadRow: View {
                 let fileSizeStr   = formattedFileSize(fileSize)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(video.video.title ?? "Untitled")
-                        .font(.headline)
-                        .lineLimit(1)
+                    if video.downloadStatus == .completed {
+                        HStack {
+                            Text(video.video.title ?? "Untitled")
+                                .font(.headline)
+                                .lineLimit(1)
+                            Spacer()
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                                .font(.system(size: 20))
+                                .padding(.trailing, 5)
+                            
+                        }
+                    } else {
+                        Text(video.video.title ?? "Untitled")
+                            .font(.headline)
+                            .lineLimit(1)
+                    }
 
-                    statusText
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                    if video.downloadStatus == .completed {
+                        HStack {
+                            statusText
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
+                            Spacer()
+                            Text(totalStr)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    } else {
+                        statusText
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
 
                     if video.downloadStatus == .downloading {
                         ProgressView(value: progress)
@@ -101,25 +128,6 @@ struct DownloadRow: View {
                             }
                         }
                         .padding(.vertical, 5)
-                    }
-
-                }
-
-                Spacer()
-
-                // If fully downloaded, show checkmark + total size
-                VStack(alignment: .trailing) {
-                    if video.downloadStatus == .completed {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                            .font(.system(size: 20))
-                            .padding(.trailing, 5)
-
-                        Spacer()
-
-                        Text(totalStr)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
                     }
                 }
             }

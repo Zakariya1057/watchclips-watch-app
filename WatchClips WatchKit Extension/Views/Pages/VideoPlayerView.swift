@@ -29,8 +29,8 @@ struct VideoPlayerView: View {
     
     @AppStorage("loggedInState") private var loggedInStateData = Data()
     
-    private var planName: PlanName {
-        decodeLoggedInState(from: loggedInStateData)?.planName ?? .free
+    private var activePlan: Plan? {
+        return decodeLoggedInState(from: loggedInStateData)?.activePlan
     }
     
     // For saving and resuming
@@ -40,12 +40,12 @@ struct VideoPlayerView: View {
     @Environment(\.scenePhase) private var scenePhase
     
     // MARK: - Init
-    init(code: String, videoId: String) {
+    init(code: String, videoId: String, filename: String) {
         self.code = code
         self.videoId = videoId
         
         // Default remote URL
-        guard let url = URL(string: "https://dwxvsu8u3eeuu.cloudfront.net/processed/\(code)/\(videoId).mp4") else {
+        guard let url = URL(string: "https://dwxvsu8u3eeuu.cloudfront.net/\(filename)") else {
             fatalError("Invalid URL constructed with code: \(code) and videoId: \(videoId)")
         }
         self.remoteURL = url
@@ -246,7 +246,7 @@ struct VideoPlayerView: View {
                     updatePlaybackStateIfReady()
                     updateNowPlayingInfo()
                     
-                    if planName == .pro {
+                    if activePlan?.name == .pro {
                         if let (progress, _) = PlaybackProgressService.shared.getProgress(videoId: videoId),
                            progress > 0 {
                             seekTo(time: progress, playIfNeeded: isPlaying)

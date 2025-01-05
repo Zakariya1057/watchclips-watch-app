@@ -88,23 +88,98 @@ class SegmentedDownloadManager: NSObject {
             return
         }
         
-        // Check existing metadata
+        // If there's existing metadata, check if the URL changed
         if let existingMeta = metadataList[videoId] {
-            // If the URL changed, update
-            if existingMeta.remoteURL != url.absoluteString {
-                print("[SegmentedDownloadManager] URL changed => updating metadata.")
-                metadataList[videoId] = existingMeta.withRemoteURL(url.absoluteString)
-            }
-            // If we already have totalSize > 0, skip HEAD
-            if existingMeta.totalSize > 0 {
-                createContextAndStart(videoId: videoId, remoteURL: url, totalSize: existingMeta.totalSize)
-                return
+            let oldURLString = existingMeta.remoteURL
+            if oldURLString != url.absoluteString {
+                print("[SegmentedDownloadManager] URL changed from \(oldURLString) to \(url.absoluteString).")
+                
+                // Calculate how many bytes we've already downloaded
+                let bytesDownloaded = Int64(existingMeta.finishedSegments.count) * chunkSize
+                
+                // If we've downloaded more than 100MB, we try to keep using the old URL...
+                if bytesDownloaded > 100_000_000 {
+                    // But first, confirm the old file actually still exists:
+                    // Make a quick HEAD request on the old URL to verify
+                    guard let oldURL = URL(string: oldURLString) else {
+                        // If we can't even form the old URL, fall back to the new one
+                        print("[SegmentedDownloadManager] Old URL invalid => using new URL.")
+                        switchToNewURLAndRestart(videoId: videoId, newURL: url)
+                        return
+                    }
+                    
+                    var headRequest = URLRequest(url: oldURL)
+                    headRequest.httpMethod = "HEAD"
+                    
+                    // We'll do a synchronous or quick async check to confirm it still exists
+                    // For simplicity, do it asynchronously then continue logic:
+                    let headTask = urlSession.dataTask(with: headRequest) { [weak self] _, response, error in
+                        guard let self = self else { return }
+                        
+                        // If HEAD fails or status not 200/206 => old file is gone
+                        if let err = error {
+                            print("[SegmentedDownloadManager] Old file HEAD failed => \(err). Switching to new.")
+                            self.switchToNewURLAndRestart(videoId: videoId, newURL: url)
+                            return
+                        }
+                        guard let httpRes = response as? HTTPURLResponse,
+                              (httpRes.statusCode == 200 || httpRes.statusCode == 206)
+                        else {
+                            print("[SegmentedDownloadManager] Old file HEAD => Not 200/206 => switching to new URL.")
+                            self.switchToNewURLAndRestart(videoId: videoId, newURL: url)
+                            return
+                        }
+                        
+                        // If we got 200/206, old file still exists => continue with the old URL
+                        print("[SegmentedDownloadManager] Over 100MB downloaded and old file still exists => continuing with old URL.")
+                        self.createContextAndStart(videoId: videoId,
+                                                   remoteURL: oldURL,
+                                                   totalSize: existingMeta.totalSize)
+                    }
+                    headTask.resume()
+                    
+                    return // Important to return here because we’re checking asynchronously
+                } else {
+                    // We have 100MB or less => discard partial progress and start with the new URL
+                    print("[SegmentedDownloadManager] 100MB or less downloaded => switching to new URL and restarting.")
+                    switchToNewURLAndRestart(videoId: videoId, newURL: url)
+                    return
+                }
+            } else {
+                // If the URL is the same and we already have totalSize, skip HEAD
+                if existingMeta.totalSize > 0 {
+                    createContextAndStart(videoId: videoId, remoteURL: url, totalSize: existingMeta.totalSize)
+                    return
+                }
             }
         }
         
-        // HEAD request to find total file size
+        // If we reach here, either no metadata or we just reset it => do HEAD on new URL
+        doHeadAndStart(videoId: videoId, url: url)
+    }
+    
+    /// Clear old partial data, reset metadata, then do HEAD on the new URL to get totalSize.
+    private func switchToNewURLAndRestart(videoId: String, newURL: URL) {
+        // 1) Delete old partial data from disk
+        deleteLocalFile(videoId: videoId)
+        
+        // 2) Clear out old metadata so we start fresh
+        metadataList[videoId] = DownloadMetadata(
+            videoId: videoId,
+            remoteURL: newURL.absoluteString,
+            totalSize: 0,
+            finishedSegments: []
+        )
+        
+        // 3) Do HEAD and start
+        doHeadAndStart(videoId: videoId, url: newURL)
+    }
+
+    /// Common method to do a HEAD on the provided `url` and create the download context.
+    private func doHeadAndStart(videoId: String, url: URL) {
         var headReq = URLRequest(url: url)
         headReq.httpMethod = "HEAD"
+        
         let task = urlSession.dataTask(with: headReq) { [weak self] _, response, error in
             guard let self = self else { return }
             
@@ -123,7 +198,7 @@ class SegmentedDownloadManager: NSObject {
                 return
             }
             
-            // Save partial metadata
+            // Update metadata with known total size
             self.metadataList[videoId] = DownloadMetadata(
                 videoId: videoId,
                 remoteURL: url.absoluteString,
@@ -131,11 +206,12 @@ class SegmentedDownloadManager: NSObject {
                 finishedSegments: []
             )
             
+            // Create context and start
             self.createContextAndStart(videoId: videoId, remoteURL: url, totalSize: totalSize)
         }
         task.resume()
     }
-    
+
     /// Resume is just another start, but we guard if it's active
     func resumeDownload(videoId: String, from url: URL) {
         print("[SegmentedDownloadManager] resumeDownload(\(videoId)) => \(url)")

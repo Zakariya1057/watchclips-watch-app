@@ -219,9 +219,7 @@ class DownloadsViewModel: ObservableObject {
             return nil
         }
         return base
-            .appendingPathComponent("processed")
-            .appendingPathComponent(video.code)
-            .appendingPathComponent("\(video.id).mp4")
+            .appendingPathComponent(video.filename)
     }
 }
 
