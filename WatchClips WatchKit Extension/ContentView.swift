@@ -4,6 +4,10 @@ struct ContentView: View {
     @AppStorage("loggedInState") private var loggedInStateData = Data()
     @StateObject private var appState = AppState.shared
 
+    private var code: String? {
+        return decodeLoggedInState(from: loggedInStateData)?.code
+    }
+    
     // Pull from environment (same singletons from MyWatchApp)
     @EnvironmentObject var videosService: VideosService
     @EnvironmentObject var cachedService: CachedVideosService

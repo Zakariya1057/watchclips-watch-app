@@ -58,10 +58,7 @@ class DownloadsViewModel: ObservableObject {
     // MARK: - Server
     
     func loadServerVideos(forCode code: String, useCache: Bool = true) async {
-        // Changes needed -
-        // 1. The downloaded items not coming through in the correct order from the newest to latest
-        // 2. Videos deleted from remote are not being deleted from the local
-        
+        // Example usage: fetch from server, then merge
         isLoading = true
         defer { isLoading = false }
 
@@ -178,6 +175,25 @@ class DownloadsViewModel: ObservableObject {
         }
     }
     
+    // MARK: - NEW: onAppearCheckForURLChanges
+    
+    /// Call this (e.g. from a SwiftUI View's `onAppear`) to ensure each video's URL is up-to-date.
+    /// If the URL has changed from what the manager has on file, it will compare which leftover portion is smaller,
+    /// and pick the smaller path.
+    func onAppearCheckForURLChanges() {
+        print("[DownloadsViewModel] onAppear => Checking for any changed URLs in all videos.")
+        for item in videos {
+            // Build the current/expected remote URL
+            guard let remoteURL = buildRemoteURL(item.video) else {
+                print("[DownloadsViewModel] [ERROR] Could not build remote URL for \(item.id). Skipping check.")
+                continue
+            }
+            // Simply call startDownload. If there's no change, the manager does nothing.
+            // If there *is* a change, it triggers the HEAD/compare logic automatically.
+            bgManager.startDownload(videoId: item.id, from: remoteURL)
+        }
+    }
+    
     // MARK: - Helpers
     
     func progress(for item: DownloadedVideo) -> Double {
@@ -218,8 +234,7 @@ class DownloadsViewModel: ObservableObject {
             print("[DownloadsViewModel] [ERROR] Invalid base URL string.")
             return nil
         }
-        return base
-            .appendingPathComponent(video.filename)
+        return base.appendingPathComponent(video.filename)
     }
 }
 
@@ -250,11 +265,11 @@ extension DownloadsViewModel: SegmentedDownloadManagerDelegate {
             if let item = videos.first(where: { $0.id == videoId }) {
                 let title = item.video.title ?? "(Untitled)"
                 
-                // NEW: Pass the entire `Video` to NotificationManager
+                // Pass the entire `Video` to NotificationManager
                 NotificationManager.shared.scheduleLocalNotification(
                     title: title,
                     body: "Your video is ready to watch!",
-                    video: item.video  // <-- Passing the full Video here
+                    video: item.video
                 ) { success in
                     print("[DownloadsViewModel] Notification scheduled? \(success)")
                 }

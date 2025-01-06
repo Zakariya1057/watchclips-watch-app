@@ -115,6 +115,7 @@ struct DownloadList: View {
             // call `downloadsVM.loadLocalDownloads()` etc. here as well.
             Task {
                 await downloadsVM.loadServerVideos(forCode: code, useCache: true)
+                downloadsVM.onAppearCheckForURLChanges()
             }
         }
         .navigationBarBackButtonHidden(true)
