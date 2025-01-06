@@ -188,9 +188,12 @@ class DownloadsViewModel: ObservableObject {
                 print("[DownloadsViewModel] [ERROR] Could not build remote URL for \(item.id). Skipping check.")
                 continue
             }
-            // Simply call startDownload. If there's no change, the manager does nothing.
-            // If there *is* a change, it triggers the HEAD/compare logic automatically.
-            bgManager.startDownload(videoId: item.id, from: remoteURL)
+            
+            if item.downloadStatus == .downloading {
+                // Simply call startDownload. If there's no change, the manager does nothing.
+                // If there *is* a change, it triggers the HEAD/compare logic automatically.
+                bgManager.startDownload(videoId: item.id, from: remoteURL)
+            }
         }
     }
     

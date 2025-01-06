@@ -114,7 +114,7 @@ struct DownloadList: View {
             // If you also want local/resume logic,
             // call `downloadsVM.loadLocalDownloads()` etc. here as well.
             Task {
-                await downloadsVM.loadServerVideos(forCode: code, useCache: true)
+                await downloadsVM.loadServerVideos(forCode: code, useCache: false)
                 downloadsVM.onAppearCheckForURLChanges()
             }
         }
