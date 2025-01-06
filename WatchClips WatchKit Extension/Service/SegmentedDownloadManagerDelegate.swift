@@ -91,7 +91,7 @@ class SegmentedDownloadManager: NSObject {
         let existingMeta = metadataList[videoId]
         let oldURLString = existingMeta?.remoteURL
         let urlChanged = (oldURLString != nil) ? (oldURLString != newURL.absoluteString) : false
-        
+
         // If we're already downloading, skip unless the URL has changed.
         if activeDownloads[videoId] != nil {
             print("[SegmentedDownloadManager] Already downloading => ignoring second start.")

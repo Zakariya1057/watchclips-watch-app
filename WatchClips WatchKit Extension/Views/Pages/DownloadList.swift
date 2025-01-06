@@ -22,6 +22,8 @@ struct DownloadList: View {
         self.code = code
     }
 
+    @Environment(\.scenePhase) private var scenePhase
+    
     var body: some View {
         VStack {
             // 1) Loading or Error states
@@ -109,6 +111,13 @@ struct DownloadList: View {
                 }
             }
         }
+        .onChange(of: scenePhase, { oldValue, newValue in
+            if newValue == .active {
+                Task {
+                    downloadsVM.onAppearCheckForURLChanges()
+                }
+            }
+        })
         .onAppear {
             // Only fetch fresh server videos.
             // If you also want local/resume logic,
