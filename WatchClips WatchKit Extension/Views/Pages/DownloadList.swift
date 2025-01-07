@@ -33,7 +33,6 @@ struct DownloadList: View {
                             .progressViewStyle(CircularProgressViewStyle())
                             .padding()
                     }
-                    .listRowBackground(Color.black)
                 }
                 
                 if let error = sharedVM.errorMessage {
@@ -52,20 +51,16 @@ struct DownloadList: View {
                     .padding(.vertical, 20)
                 }
             } else {
-                // Show the server's videos from sharedVM
                 List {
-                    // If you want the user to see an updated sharedVM.videos list:
                     if sharedVM.isLoading {
                         HStack {
                             ProgressView("Loading videos...")
                                 .progressViewStyle(CircularProgressViewStyle())
                                 .padding()
                         }
-                        .listRowBackground(Color.black)
                     }
                     
                     ForEach(sharedVM.videos) { vid in
-                        // Convert to DownloadedVideo if we have a local record
                         let downloadedVideo: DownloadedVideo = downloadsVM.itemFor(video: vid)
                         
                         DownloadRow(
@@ -90,7 +85,7 @@ struct DownloadList: View {
                                 showProcessingAlert = true
                             }
                         )
-                        .contentShape(Rectangle())
+                        // Removed .contentShape(Rectangle()) to avoid potential gesture conflicts
                         .onTapGesture {
                             if downloadedVideo.downloadStatus == .completed {
                                 selectedVideo = downloadedVideo.video
@@ -107,6 +102,8 @@ struct DownloadList: View {
                         }
                     }
                 }
+                // Use a plain list style which helps reduce some layout issues
+                .listStyle(.plain)
             }
         }
         .toolbar {
@@ -119,7 +116,6 @@ struct DownloadList: View {
             }
             
             ToolbarItem(placement: .topBarTrailing) {
-                // Now call the SHARED VM refresh
                 Button {
                     Task {
                         await sharedVM.refreshVideos(code: code, forceRefresh: true)
@@ -148,7 +144,6 @@ struct DownloadList: View {
         }
         .alert("Video Not Ready", isPresented: $showProcessingAlert) {
             Button("OK", role: .cancel) {
-                // Attempt a refresh if you want
                 Task {
                     await sharedVM.refreshVideos(code: code, forceRefresh: true)
                 }

@@ -13,7 +13,7 @@ struct VideoListView: View {
     // Access your userSettingsService from the environment
     @EnvironmentObject private var mainUserSettingsService: UserSettingsService
     
-    // NEW: Access the shared videos VM from environment
+    // Access the shared videos VM from environment
     @EnvironmentObject private var sharedVM: SharedVideosViewModel
     
     @State private var showErrorAlert = false
@@ -24,13 +24,12 @@ struct VideoListView: View {
     @State private var selectedVideo: Video? // For fullScreenCover
     @State private var pageLoaded = false
     
-    // If you still need a local ref
     @StateObject private var notificationManager = NotificationManager.shared
     var downloadStore: DownloadsStore = DownloadsStore()
     
     private var activePlan: Plan? {
         // Optionally read from sharedVM.activePlan if you want
-        // Or decode from loggedInState
+        // or decode from loggedInState
         if let plan = sharedVM.activePlan {
             return plan
         }
@@ -64,7 +63,7 @@ struct VideoListView: View {
                                 video: video,
                                 isDownloaded: downloadStore.isDownloaded(videoId: video.id)
                             )
-                            .contentShape(Rectangle())
+                            // Removed .contentShape(Rectangle()) to avoid gesture conflicts
                             .onTapGesture {
                                 if video.status == .postProcessingSuccess {
                                     selectedVideo = video
@@ -72,14 +71,14 @@ struct VideoListView: View {
                                     showProcessingAlert = true
                                 }
                             }
-                            // Minimal styling for performance
-                            .listRowBackground(Color(.black))
+                            .listRowBackground(Color.clear)
                             .listRowInsets(EdgeInsets(top: 0, leading: 10, bottom: 10, trailing: 10))
                         }
                     }
                     
                     logoutButton
                 }
+                // Keep using .plain for minimal styling
                 .listStyle(.plain)
                 .onAppear {
                     DispatchQueue.main.async {
@@ -87,11 +86,12 @@ struct VideoListView: View {
                             Task {
                                 await fetchPlan()
                             }
+                            pageLoaded = true
                         }
                     }
                 }
                 .onReceive(networkMonitor.$isConnected) { isConnected in
-                    // If we just got reconnected, refresh
+                    // If reconnected, refresh if previously offline
                     if isConnected, sharedVM.isOffline, !sharedVM.isInitialLoad {
                         Task {
                             await sharedVM.refreshVideos(code: code, forceRefresh: true)
@@ -185,7 +185,7 @@ struct VideoListView: View {
                         HStack(alignment: .center, spacing: 8) {
                             Text("Continue")
                                 .font(.headline)
-
+                            
                             Image(systemName: "play.circle.fill")
                                 .font(.system(size: 24, weight: .bold))
                         }
@@ -206,7 +206,7 @@ struct VideoListView: View {
                 .padding()
         }
         .padding()
-        .listRowBackground(Color.black)
+        // Removed .listRowBackground(Color.black)
     }
     
     @ViewBuilder
@@ -259,7 +259,7 @@ struct VideoListView: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.gray.opacity(0.5), lineWidth: 1)
         )
-        .listRowBackground(Color.clear)
+        // Removed .listRowBackground(Color.clear)
         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
     }
     
@@ -280,6 +280,7 @@ struct VideoListView: View {
         VStack {
             Color.black.opacity(0.5)
                 .ignoresSafeArea()
+            
             VStack(spacing: 16) {
                 ProgressView("Deleting videos...")
                     .progressViewStyle(CircularProgressViewStyle())
@@ -321,8 +322,6 @@ struct VideoListView: View {
         isDeletingAll = true
         defer { isDeletingAll = false }
         
-        await sharedVM.deleteAllVideosAndLogout(
-            downloadStore: downloadStore
-        )
+        await sharedVM.deleteAllVideosAndLogout(downloadStore: downloadStore)
     }
 }
