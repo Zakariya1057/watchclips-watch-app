@@ -220,6 +220,7 @@ struct VideoPlayerView: View {
     }
     
     private func setupPlayerForRemote(_ url: URL) {
+        print(url)
         let playerItem = AVPlayerItem(url: url)
         initializePlayer(with: playerItem, restoreState: false)
     }
