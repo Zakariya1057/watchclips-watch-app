@@ -32,7 +32,12 @@ struct ContentView: View {
                     .onAppear {
                         Task {
                             if let code = code {
-                                await sharedVM.loadVideos(code: code, useCache: false)
+                                let isEmpty = await (try? cachedService.fetchVideos(forCode: code).isEmpty) ?? true
+                                
+                                if isEmpty {
+                                    await sharedVM.loadVideos(code: code, useCache: false)
+                                }
+                               
                             }
                         }
 
@@ -40,9 +45,11 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            // If you want to load local partial downloads
-            downloadViewModel.loadLocalDownloads()
-            downloadViewModel.resumeInProgressDownloads()
+            Task {
+                // If you want to load local partial downloads
+                downloadViewModel.loadLocalDownloads()
+                downloadViewModel.resumeInProgressDownloads()
+            }
         }
         // Also, if you want the full screen video player
         .fullScreenCover(item: $appState.selectedVideo) { video in

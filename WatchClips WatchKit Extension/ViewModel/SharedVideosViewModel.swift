@@ -16,6 +16,7 @@ class SharedVideosViewModel: ObservableObject {
     
     @AppStorage("loggedInState") private var loggedInStateData = Data()
     
+    
     private let cachedVideosService: CachedVideosService
     
     /// Optional: Store your "activePlan" if you also want to fetch that once
@@ -24,6 +25,11 @@ class SharedVideosViewModel: ObservableObject {
     /// Pass in your existing services + user code
     init(cachedVideosService: CachedVideosService) {
         self.cachedVideosService = cachedVideosService
+        
+        Task {
+            let code = decodeLoggedInState(from: loggedInStateData)?.code ?? ""
+            self.videos = try await cachedVideosService.fetchVideos(forCode: code)
+        }
     }
     
     // MARK: - Load (initial) 

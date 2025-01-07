@@ -122,12 +122,15 @@ struct DownloadList: View {
         }
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
-                // If you want to recheck any partial downloads, etc.
-                downloadsVM.onAppearCheckForURLChanges()
+                DispatchQueue.main.async {
+                    downloadsVM.onAppearCheckForURLChanges()
+                }
             }
         }
         .onAppear {
-            downloadsVM.onAppearCheckForURLChanges()
+            DispatchQueue.main.async {
+                downloadsVM.onAppearCheckForURLChanges()
+            }
         }
         .navigationBarBackButtonHidden(true)
         .fullScreenCover(item: $selectedVideo) { video in

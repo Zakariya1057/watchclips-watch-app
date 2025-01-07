@@ -82,9 +82,11 @@ struct VideoListView: View {
                 }
                 .listStyle(.plain)
                 .onAppear {
-                    if !pageLoaded {
-                        Task {
-                            await fetchPlan()
+                    DispatchQueue.main.async {
+                        if !pageLoaded {
+                            Task {
+                                await fetchPlan()
+                            }
                         }
                     }
                 }
@@ -159,7 +161,9 @@ struct VideoListView: View {
             .padding(.horizontal, 16)
         }
         .onAppear {
-            notificationManager.requestAuthorization()
+            DispatchQueue.main.async {
+                notificationManager.requestAuthorization()
+            }
         }
     }
 
