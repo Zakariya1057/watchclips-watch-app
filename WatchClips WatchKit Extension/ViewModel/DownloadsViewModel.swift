@@ -58,56 +58,6 @@ class DownloadsViewModel: ObservableObject {
         print("[DownloadsViewModel] Persist complete.")
     }
     
-    // MARK: - Server
-    
-    func loadServerVideos(forCode code: String, useCache: Bool = true) async {
-        // Example usage: fetch from server, then merge
-        isLoading = true
-        defer { isLoading = false }
-
-        print("[DownloadsViewModel] Attempting to fetch videos from server for code: \(code).")
-        
-        do {
-            let fetched = try await cachedVideosService.fetchVideos(forCode: code, useCache: useCache)
-            print("[DownloadsViewModel] Fetched \(fetched.count) videos from server.")
-            
-            var newList: [DownloadedVideo] = []
-
-            // Merge server list with local
-            for serverVid in fetched {
-                if let localItem = videos.first(where: { $0.id == serverVid.id }) {
-                    // Keep local's download status/bytes
-                    let updated = DownloadedVideo(
-                        video: serverVid,
-                        downloadStatus: localItem.downloadStatus,
-                        downloadedBytes: localItem.downloadedBytes,
-                        totalBytes: localItem.totalBytes,
-                        errorMessage: localItem.errorMessage
-                    )
-                    newList.append(updated)
-                } else {
-                    // Brand new => notStarted
-                    newList.append(
-                        DownloadedVideo(
-                            video: serverVid,
-                            downloadStatus: .notStarted,
-                            downloadedBytes: 0,
-                            totalBytes: serverVid.size ?? 0,
-                            errorMessage: nil
-                        )
-                    )
-                }
-            }
-            self.videos = newList
-            persist()
-            print("[DownloadsViewModel] Server videos loaded and merged successfully.")
-        } catch {
-            let msg = "Failed to load videos from server for code: \(code). Error: \(error.localizedDescription)"
-            self.errorMessage = msg
-            print("[DownloadsViewModel] [ERROR] \(msg)")
-        }
-    }
-    
     // MARK: - Start / Pause / Delete
 
     func startOrResumeDownload(_ item: DownloadedVideo) {
@@ -348,7 +298,6 @@ extension DownloadsViewModel {
             
             DispatchQueue.main.async {
                 self.videos.append(newDownload)
-                self.persist()
             }
             
             return newDownload
