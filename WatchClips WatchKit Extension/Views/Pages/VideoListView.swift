@@ -169,17 +169,14 @@ struct VideoListView: View {
                 notificationManager.requestAuthorization()
             }
         }
-        // Present the DownloadList modally
         .fullScreenCover(isPresented: $showDownloadList) {
-            NavigationStack {
+            ZStack {
+                // This view is the “background” for the modal
+                Color.black
+                    .opacity(0.5)           // Adjust opacity to your liking
+                    .ignoresSafeArea()
+                
                 DownloadList(code: code)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Close") {
-                                showDownloadList = false
-                            }
-                        }
-                    }
             }
         }
     }
