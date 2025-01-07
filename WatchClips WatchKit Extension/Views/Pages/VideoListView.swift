@@ -18,6 +18,8 @@ struct VideoListView: View {
     
     @State private var showErrorAlert = false
     @State private var showLogoutConfirmation = false
+    @State private var showDownloadList = false
+    
     @State private var isDeletingAll = false
     @StateObject private var networkMonitor = NetworkMonitor()
     @State private var showProcessingAlert = false
@@ -148,7 +150,9 @@ struct VideoListView: View {
     // MARK: - Subviews
     
     private var downloadsLink: some View {
-        NavigationLink(destination: DownloadList(code: code)) {
+        Button(action: {
+            showDownloadList = true
+        }) {
             HStack(alignment: .center, spacing: 8) {
                 Text("Downloads")
                     .font(.headline)
@@ -163,6 +167,19 @@ struct VideoListView: View {
         .onAppear {
             DispatchQueue.main.async {
                 notificationManager.requestAuthorization()
+            }
+        }
+        // Present the DownloadList modally
+        .fullScreenCover(isPresented: $showDownloadList) {
+            NavigationStack {
+                DownloadList(code: code)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Close") {
+                                showDownloadList = false
+                            }
+                        }
+                    }
             }
         }
     }

@@ -41,6 +41,7 @@
 		367D84072D2457D400D13EE0 /* PlanName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367D84062D2457D400D13EE0 /* PlanName.swift */; };
 		36918DBD2D1B3FC7008FB158 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36918DBC2D1B3FC7008FB158 /* NotificationManager.swift */; };
 		36C643542D2D3FC6009777B6 /* SharedVideosViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C643532D2D3FC6009777B6 /* SharedVideosViewModel.swift */; };
+		36C643562D2D8B3C009777B6 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C643552D2D8B3C009777B6 /* HelpView.swift */; };
 		36D977972D14C63500A8C717 /* WatchClipsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D977942D14C63500A8C717 /* WatchClipsApp.swift */; };
 		36D9779A2D14C63500A8C717 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D9778A2D14C63500A8C717 /* NetworkMonitor.swift */; };
 		36D9779B2D14C63500A8C717 /* Supabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D977822D14C63500A8C717 /* Supabase.swift */; };
@@ -144,6 +145,7 @@
 		367D84062D2457D400D13EE0 /* PlanName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanName.swift; sourceTree = "<group>"; };
 		36918DBC2D1B3FC7008FB158 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		36C643532D2D3FC6009777B6 /* SharedVideosViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedVideosViewModel.swift; sourceTree = "<group>"; };
+		36C643552D2D8B3C009777B6 /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
 		36D9777B2D14C63500A8C717 /* Video.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Video.swift; sourceTree = "<group>"; };
 		36D9777F2D14C63500A8C717 /* VideoDownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoDownloadManager.swift; sourceTree = "<group>"; };
 		36D977812D14C63500A8C717 /* CachedVideosService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedVideosService.swift; sourceTree = "<group>"; };
@@ -189,6 +191,7 @@
 			children = (
 				36D977892D14C63500A8C717 /* LoginView.swift */,
 				36D9778B2D14C63500A8C717 /* VideoListView.swift */,
+				36C643552D2D8B3C009777B6 /* HelpView.swift */,
 				365ACBE52D16BAAA0078A6A4 /* DownloadList.swift */,
 				36D9778D2D14C63500A8C717 /* VideoPlayerView.swift */,
 			);
@@ -523,6 +526,7 @@
 				367D83EF2D2436E900D13EE0 /* SubscriptionWithPlan.swift in Sources */,
 				367D83FE2D244BCA00D13EE0 /* UserSettingsRepository.swift in Sources */,
 				36D9779E2D14C63500A8C717 /* CachedVideosService.swift in Sources */,
+				36C643562D2D8B3C009777B6 /* HelpView.swift in Sources */,
 				36D9779F2D14C63500A8C717 /* ContentView.swift in Sources */,
 				365ACC002D1738510078A6A4 /* DownloadRow.swift in Sources */,
 				367D84032D244D7C00D13EE0 /* PlanFeatures.swift in Sources */,
