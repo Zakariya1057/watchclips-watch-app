@@ -73,22 +73,18 @@ class DownloadsViewModel: ObservableObject {
 
         print("[DownloadsViewModel] Initiating startOrResumeDownload for videoId: \(item.id).")
         
-        DispatchQueue.main.async {
-            // Mark it as "downloading" in our local model
-            self.updateStatus(item.id, status: .downloading, errorMessage: nil)
-            
-            // Let the chunk-based manager do the rest
-            self.bgManager.resumeDownload(videoId: item.id, from: remoteURL)
-        }
+        // Mark it as "downloading" in our local model
+        self.updateStatus(item.id, status: .downloading, errorMessage: nil)
+        
+        // Let the chunk-based manager do the rest
+        self.bgManager.resumeDownload(videoId: item.id, from: remoteURL)
     }
     
     func pauseDownload(_ item: DownloadedVideo) {
         print("[DownloadsViewModel] Pausing download for \(item.id).")
         
-        DispatchQueue.main.async {
-            self.bgManager.cancelDownload(videoId: item.id)
-            self.updateStatus(item.id, status: .paused, errorMessage: nil)
-        }
+        self.bgManager.cancelDownload(videoId: item.id)
+        self.updateStatus(item.id, status: .paused, errorMessage: nil)
     }
     
     /// **Deletes both** the final `.mp4` **and** any partial data if the download is in progress.
