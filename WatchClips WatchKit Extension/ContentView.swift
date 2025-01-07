@@ -18,12 +18,8 @@ struct ContentView: View {
     // (Alternatively, you can create it in your @main App if you prefer.)
     @EnvironmentObject private var sharedVM: SharedVideosViewModel
     
-    init() {
-        // Example of reading the code from loggedInState
-        let code = decodeLoggedInState(from: _loggedInStateData.wrappedValue)?.code ?? ""
-        
-        // Create the SharedVideosViewModel with your existing cachedService
-        let cached = CachedVideosService(videosService: VideosService(client: supabase))
+    private var code: String? {
+        return decodeLoggedInState(from: loggedInStateData)?.code
     }
     
     var body: some View {
@@ -33,6 +29,14 @@ struct ContentView: View {
             } else {
                 // Provide the environment object to children
                 VideoListView()
+                    .onAppear {
+                        Task {
+                            if let code = code {
+                                await sharedVM.loadVideos(code: code, useCache: false)
+                            }
+                        }
+
+                    }
             }
         }
         .onAppear {

@@ -113,7 +113,7 @@ struct DownloadList: View {
                 // Now call the SHARED VM refresh
                 Button {
                     Task {
-                        await sharedVM.refreshVideos(forceRefresh: true)
+                        await sharedVM.refreshVideos(code: code, forceRefresh: true)
                     }
                 } label: {
                     Image(systemName: "arrow.clockwise")
@@ -123,7 +123,6 @@ struct DownloadList: View {
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
                 // If you want to recheck any partial downloads, etc.
-
                 downloadsVM.onAppearCheckForURLChanges()
             }
         }
@@ -139,7 +138,7 @@ struct DownloadList: View {
             Button("OK", role: .cancel) {
                 // Attempt a refresh if you want
                 Task {
-                    await sharedVM.refreshVideos(forceRefresh: true)
+                    await sharedVM.refreshVideos(code: code, forceRefresh: true)
                 }
             }
         } message: {

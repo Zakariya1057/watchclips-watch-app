@@ -5,18 +5,12 @@ struct LoginView: View {
     @State private var code = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var showHelpAlert = false
 
-    // Instead of just storing the code string, we store the entire state as Data
     @AppStorage("loggedInState") private var loggedInStateData = Data()
 
-    private var codesService: CodeService {
-        CodeService(client: supabase)
-    }
-
-    // Access your userSettingsService to fetch plan info
-    private var userSettingsService: UserSettingsService {
-        UserSettingsService(client: supabase)
-    }
+    private var codesService: CodeService { CodeService(client: supabase) }
+    private var userSettingsService: UserSettingsService { UserSettingsService(client: supabase) }
 
     var body: some View {
         ZStack {
@@ -40,8 +34,19 @@ struct LoginView: View {
                     .disabled(code.isEmpty)
                 }
             }
-            .navigationTitle("WatchClips")
             .navigationBarTitleDisplayMode(.inline)
+            // 1) Add a Toolbar with the Help button in the top-right
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Text("WatchClips")
+                }
+                
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("?") {
+                        showHelpAlert = true
+                    }
+                }
+            }
 
             // Full-screen loading overlay
             if isLoading {
@@ -56,6 +61,7 @@ struct LoginView: View {
                     .foregroundColor(.white)
             }
         }
+        // Alert for errors
         .alert("Error", isPresented: Binding<Bool>(
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil } }
@@ -64,9 +70,14 @@ struct LoginView: View {
         } message: {
             Text(errorMessage ?? "An unknown error occurred.")
         }
+        // Alert for Help
+        .alert("Need Help?", isPresented: $showHelpAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("To get your login code, please visit WatchClips.app")
+        }
     }
 
-    /// Invoked when the user taps “Login.”
     func signInButtonTapped() {
         Task {
             isLoading = true
@@ -74,29 +85,16 @@ struct LoginView: View {
             defer { isLoading = false }
 
             do {
-                // 1) Fetch the Code record from the DB
                 let codeRecord = try await codesService.fetchCode(byId: code)
-                print("Code found: \(codeRecord.id)")
-                
-                // 2) If codeRecord.userId is set, fetch the plan for that user
                 var plan: Plan? = nil
                 if let userUUID = codeRecord.userId {
                     plan = try? await userSettingsService.fetchActivePlan(forUserId: userUUID)
                 }
-
-                // 3) Build a new LoggedInState with code, userId, planName
-                let newState = LoggedInState(
-                    code: codeRecord.id,
-                    userId: codeRecord.userId,
-                    activePlan: plan
-                )
-
-                // 4) Encode into Data, store in @AppStorage
+                let newState = LoggedInState(code: codeRecord.id, userId: codeRecord.userId, activePlan: plan)
                 let encoded = try JSONEncoder().encode(newState)
                 loggedInStateData = encoded
 
             } catch {
-                print(error)
                 handleError(error)
             }
         }
@@ -115,7 +113,7 @@ struct LoginView: View {
                 errorMessage = "A network error occurred. Please try again."
             }
         } else {
-            errorMessage = "Code not found, or invalid. Try again, checking the code from WatchClips website."
+            errorMessage = "Code not found or invalid. Please check the code from WatchClips website."
         }
     }
 }

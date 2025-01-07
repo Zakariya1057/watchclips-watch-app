@@ -84,11 +84,7 @@ struct VideoListView: View {
                 .onAppear {
                     if !pageLoaded {
                         Task {
-                            // Example: fetch plan first
                             await fetchPlan()
-                            // Then load
-                            await sharedVM.loadVideos(useCache: true)
-                            pageLoaded = true
                         }
                     }
                 }
@@ -96,7 +92,7 @@ struct VideoListView: View {
                     // If we just got reconnected, refresh
                     if isConnected, sharedVM.isOffline, !sharedVM.isInitialLoad {
                         Task {
-                            await sharedVM.refreshVideos(forceRefresh: true)
+                            await sharedVM.refreshVideos(code: code, forceRefresh: true)
                         }
                     }
                 }
@@ -112,7 +108,7 @@ struct VideoListView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: {
                         Task {
-                            await sharedVM.refreshVideos(forceRefresh: true)
+                            await sharedVM.refreshVideos(code: code, forceRefresh: true)
                         }
                     }) {
                         Image(systemName: "arrow.clockwise")
@@ -228,7 +224,7 @@ struct VideoListView: View {
                 
                 Button("Retry") {
                     Task {
-                        await sharedVM.refreshVideos(forceRefresh: true)
+                        await sharedVM.refreshVideos(code: code, forceRefresh: true)
                     }
                 }
                 .buttonStyle(.borderedProminent)
@@ -321,9 +317,8 @@ struct VideoListView: View {
         isDeletingAll = true
         defer { isDeletingAll = false }
         
-//        await sharedVM.deleteAllVideosAndLogout(
-//            loggedInStateData: &loggedInStateData,
-//            downloadStore: downloadStore
-//        )
+        await sharedVM.deleteAllVideosAndLogout(
+            downloadStore: downloadStore
+        )
     }
 }

@@ -341,9 +341,10 @@ extension DownloadsViewModel {
                 errorMessage: nil
             )
             
-            videos.append(newDownload)
-            
-            persist()
+            DispatchQueue.main.async {
+                self.videos.append(newDownload)
+                self.persist()
+            }
             
             return newDownload
         }

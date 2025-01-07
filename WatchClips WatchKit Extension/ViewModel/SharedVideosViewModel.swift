@@ -16,11 +16,6 @@ class SharedVideosViewModel: ObservableObject {
     
     @AppStorage("loggedInState") private var loggedInStateData = Data()
     
-    private var code: String {
-        decodeLoggedInState(from: loggedInStateData)?.code ?? ""
-    }
-    
-    
     private let cachedVideosService: CachedVideosService
     
     /// Optional: Store your "activePlan" if you also want to fetch that once
@@ -32,7 +27,7 @@ class SharedVideosViewModel: ObservableObject {
     }
     
     // MARK: - Load (initial) 
-    func loadVideos(useCache: Bool = true) async {
+    func loadVideos(code: String, useCache: Bool = true) async {
         isLoading = true
         errorMessage = nil
         
@@ -60,7 +55,7 @@ class SharedVideosViewModel: ObservableObject {
     }
     
     // MARK: - Refresh 
-    func refreshVideos(forceRefresh: Bool = true) async {
+    func refreshVideos(code: String, forceRefresh: Bool = true) async {
         isLoading = true
         errorMessage = nil
         
@@ -115,7 +110,6 @@ class SharedVideosViewModel: ObservableObject {
     
     // MARK: - Delete all (for logout)
     func deleteAllVideosAndLogout(
-        loggedInStateData: inout Data, 
         downloadStore: DownloadsStore
     ) async {
         isLoading = true
