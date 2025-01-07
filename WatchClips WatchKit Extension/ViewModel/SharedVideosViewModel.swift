@@ -32,7 +32,11 @@ class SharedVideosViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Load (initial) 
+    func setVideos(cachedVideos: [Video]) {
+        videos = cachedVideos
+    }
+    
+    // MARK: - Load (initial)
     func loadVideos(code: String, useCache: Bool = true) async {
         isLoading = true
         errorMessage = nil
@@ -106,6 +110,7 @@ class SharedVideosViewModel: ObservableObject {
     // MARK: - Plan fetching (optional)
     /// Example method to fetch the user plan from your existing service
     func fetchPlan(userSettingsService: UserSettingsService, userId: UUID) async {
+        print("User id: \(userId)")
         do {
             let freshPlan = try await userSettingsService.fetchActivePlan(forUserId: userId)
             self.activePlan = freshPlan
@@ -131,6 +136,7 @@ class SharedVideosViewModel: ObservableObject {
         Task.detached {
             await downloadStore.clearAllDownloads()
             await self.cachedVideosService.clearCache()
+            SegmentedDownloadManager.shared.clearAllActiveDownloads()
             PlaybackProgressService.shared.clearAllProgress()
             VideoDownloadManager.shared.deleteAllSavedVideos()
         }

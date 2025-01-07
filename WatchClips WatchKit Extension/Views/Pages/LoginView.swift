@@ -90,6 +90,9 @@ struct LoginView: View {
                 if let userUUID = codeRecord.userId {
                     plan = try? await userSettingsService.fetchActivePlan(forUserId: userUUID)
                 }
+                
+                print(plan)
+                
                 let newState = LoggedInState(code: codeRecord.id, userId: codeRecord.userId, activePlan: plan)
                 let encoded = try JSONEncoder().encode(newState)
                 loggedInStateData = encoded

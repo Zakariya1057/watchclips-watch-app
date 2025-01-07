@@ -32,15 +32,10 @@ struct ContentView: View {
                     .onAppear {
                         Task {
                             if let code = code {
-                                let isEmpty = await (try? cachedService.fetchVideos(forCode: code).isEmpty) ?? true
-                                
-                                if isEmpty {
-                                    await sharedVM.loadVideos(code: code, useCache: false)
-                                }
-                               
+                                let cachedVideos = (try? await cachedService.fetchVideos(forCode: code)) ?? []
+                                sharedVM.setVideos(cachedVideos: cachedVideos)
                             }
                         }
-
                     }
             }
         }

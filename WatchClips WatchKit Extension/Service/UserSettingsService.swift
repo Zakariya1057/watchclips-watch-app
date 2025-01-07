@@ -1,10 +1,3 @@
-//
-//  UserSettingsService.swift
-//  WatchClips
-//
-//  Created by Zakariya Hassan on 31/12/2024.
-//
-
 import Foundation
 import Combine
 import Supabase
@@ -18,39 +11,67 @@ class UserSettingsService: ObservableObject {
         self.client = client
     }
     
-    /// Fetches the user's active plan from the `subscriptions` table, joined with `plans`,
-    /// and returns `nil` if no active subscription is found.
+    /// Fetches the user's active plan from the `subscriptions` table, joined with `plans`.
+    /// If no active subscription is found, if multiple are found, or if decoding fails,
+    /// it falls back to `plan` with `id = 1`.
     func fetchActivePlan(forUserId userId: UUID) async throws -> Plan? {
         let userIdString = userId.uuidString
         
-        // 1) Perform the query
+        // 1) Perform the query, returning an array (no `.single()`).
         let response = try await client
             .from("subscriptions")
             .select("plan_id, plan:plans(*)")
             .eq("user_id", value: userIdString)
             .eq("status", value: "active")
-            .single() // Throws if 0 or >1 rows
             .execute()
         
-        // 2) `response.data` is non-optional Data in newer supabase-swift.
-        //    If the request fails, it throws earlier. If no rows match, `.single()` might also throw.
-        //    So if we got here, we likely have some JSON data. But it could be empty if the row is empty or not found.
-        let rawData = response.data
-        
-        // If it's empty, treat as no subscription => nil (Free plan).
-        if rawData.isEmpty {
-            return nil
-        }
-        
-        // 3) Attempt to decode the single row as SubscriptionWithPlan
+        // 2) Decode the array of subscriptions with associated plan.
+        //    If 0 rows are returned, this will decode to an empty array.
         do {
-            let subWithPlan = try JSONDecoder().decode(SubscriptionWithPlan.self, from: rawData)
-            // Return the embedded Plan object (if any)
-            return subWithPlan.plan
+            let subscriptions = try JSONDecoder().decode([SubscriptionWithPlan].self, from: response.data)
+            
+            // 3) Handle the possible array scenarios:
+            switch subscriptions.count {
+            case 0:
+                // No active subscription => fallback to plan with id=1
+                print("[UserSettingsService] No active subscription => fetching plan id=1 as fallback.")
+                return try await fetchPlanById(1)
+                
+            case 1:
+                // Exactly one subscription
+                let sub = subscriptions[0]
+                guard let plan = sub.plan else {
+                    // Subscription present, but plan is nil => fallback
+                    print("[UserSettingsService] Subscription present but plan is nil => fetching plan id=1.")
+                    return try await fetchPlanById(1)
+                }
+                // We have exactly one subscription with a non-nil plan
+                return plan
+                
+            default:
+                // More than 1 => treat as an unexpected scenario; fallback to plan id=1
+                print("[UserSettingsService] Multiple active subscriptions found => fetching plan id=1 as fallback.")
+                return try await fetchPlanById(1)
+            }
         } catch {
-            print(error)
-            // If JSON is malformed or doesn't match our model, treat as no subscription
-            return nil
+            // If JSON is malformed or doesn't match our model, treat as no subscription => fallback plan
+            print("[UserSettingsService] Error decoding subscription array => \(error) => fetching plan id=1.")
+            return try await fetchPlanById(1)
         }
+    }
+    
+    // MARK: - Fetch a single plan by its ID
+    private func fetchPlanById(_ id: Int) async throws -> Plan {
+        let planResponse = try await client
+            .from("plans")
+            .select("*")
+            .eq("id", value: id)
+            .single()
+            .execute()
+        
+        let planData = planResponse.data
+        // If this throws, it's good to let it bubble up so the caller knows there's a genuine issue
+        let plan = try JSONDecoder().decode(Plan.self, from: planData)
+        return plan
     }
 }

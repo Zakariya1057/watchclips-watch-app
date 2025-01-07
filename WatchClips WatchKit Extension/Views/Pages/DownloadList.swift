@@ -26,17 +26,16 @@ struct DownloadList: View {
     
     var body: some View {
         VStack {
-            // If you want the user to see an updated sharedVM.videos list:
-            if sharedVM.isLoading {
-                HStack {
-                    ProgressView("Loading videos...")
-                        .progressViewStyle(CircularProgressViewStyle())
-                        .padding()
-                }
-                .listRowBackground(Color.black)
-            }
-            
             if sharedVM.videos.isEmpty {
+                if sharedVM.isLoading {
+                    HStack {
+                        ProgressView("Loading videos...")
+                            .progressViewStyle(CircularProgressViewStyle())
+                            .padding()
+                    }
+                    .listRowBackground(Color.black)
+                }
+                
                 if let error = sharedVM.errorMessage {
                     Text("Failed or no videos: \(error)")
                 } else {
@@ -55,6 +54,16 @@ struct DownloadList: View {
             } else {
                 // Show the server's videos from sharedVM
                 List {
+                    // If you want the user to see an updated sharedVM.videos list:
+                    if sharedVM.isLoading {
+                        HStack {
+                            ProgressView("Loading videos...")
+                                .progressViewStyle(CircularProgressViewStyle())
+                                .padding()
+                        }
+                        .listRowBackground(Color.black)
+                    }
+                    
                     ForEach(sharedVM.videos) { vid in
                         // Convert to DownloadedVideo if we have a local record
                         let downloadedVideo: DownloadedVideo = downloadsVM.itemFor(video: vid)

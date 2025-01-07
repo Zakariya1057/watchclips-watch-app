@@ -81,6 +81,18 @@ class SegmentedDownloadManager: NSObject {
     
     // MARK: - Public API
     
+    func clearAllActiveDownloads() {
+        print("[SegmentedDownloadManager] Clearing all active downloads.")
+
+        // Copy out the keys to avoid mutating the dictionary while iterating
+        let activeIds = activeDownloads.keys
+
+        // For each active download, remove it completely
+        for videoId in activeIds {
+            removeDownloadCompletely(videoId: videoId)
+        }
+    }
+    
     /// Starts a download from scratch or continues a partial download.
     /// If there's already an active download for the same videoId, we cancel it first
     /// to avoid concurrency issues. Then we do the HEAD logic to see if we can reuse old
