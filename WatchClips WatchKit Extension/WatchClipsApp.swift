@@ -10,6 +10,7 @@ struct MyWatchApp: App {
     @StateObject private var mainVideosService: VideosService
     @StateObject private var mainCachedService: CachedVideosService
     @StateObject private var mainDownloadsVM: DownloadsViewModel
+    @StateObject private var sharedVM: SharedVideosViewModel
     
     // NEW: Add a UserSettingsService
     @StateObject private var mainUserSettingsService: UserSettingsService
@@ -19,6 +20,7 @@ struct MyWatchApp: App {
         let videosService = VideosService(client: supabase)
         let cachedVideosService = CachedVideosService(videosService: videosService)
         let downloadsViewModel = DownloadsViewModel(cachedVideosService: cachedVideosService)
+        let sharedViewModel = SharedVideosViewModel(cachedVideosService: cachedVideosService)
         
         // NEW: Create your user settings service
         let userSettingsService = UserSettingsService(client: supabase)
@@ -28,6 +30,7 @@ struct MyWatchApp: App {
         _mainCachedService       = StateObject(wrappedValue: cachedVideosService)
         _mainDownloadsVM         = StateObject(wrappedValue: downloadsViewModel)
         _mainUserSettingsService = StateObject(wrappedValue: userSettingsService)
+        _sharedVM = StateObject(wrappedValue: sharedViewModel)
     }
 
     var body: some Scene {
@@ -37,7 +40,8 @@ struct MyWatchApp: App {
                 .environmentObject(mainVideosService)
                 .environmentObject(mainCachedService)
                 .environmentObject(mainDownloadsVM)
-                .environmentObject(mainUserSettingsService) // <-- inject new service
+                .environmentObject(mainUserSettingsService)
+                .environmentObject(sharedVM)
         }
     }
 }

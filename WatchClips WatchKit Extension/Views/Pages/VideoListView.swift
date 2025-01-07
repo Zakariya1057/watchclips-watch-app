@@ -8,50 +8,39 @@
 import SwiftUI
 
 struct VideoListView: View {
-    // Pull the JSON-encoded loggedInState from AppStorage
     @AppStorage("loggedInState") private var loggedInStateData = Data()
     
-    // NEW: Access your userSettingsService from the environment
+    // Access your userSettingsService from the environment
     @EnvironmentObject private var mainUserSettingsService: UserSettingsService
     
-    @State private var videos: [Video] = []
-    @State private var isLoading = false
-    @State private var errorMessage: String?
+    // NEW: Access the shared videos VM from environment
+    @EnvironmentObject private var sharedVM: SharedVideosViewModel
+    
     @State private var showErrorAlert = false
-
     @State private var showLogoutConfirmation = false
-    @State private var isOffline = false
     @State private var isDeletingAll = false
     @StateObject private var networkMonitor = NetworkMonitor()
-    @State private var isInitialLoad = true
-
     @State private var showProcessingAlert = false
     @State private var selectedVideo: Video? // For fullScreenCover
-    
-    @StateObject private var notificationManager = NotificationManager.shared
-    
-    var downloadStore: DownloadsStore = DownloadsStore()
-    
     @State private var pageLoaded = false
     
-    // We can keep these local services for Videos (though you’re also storing them in MyWatchApp)
-    private var videosService: VideosService {
-        VideosService(client: supabase)
-    }
-    
-    private var cachedVideosService: CachedVideosService {
-        CachedVideosService(videosService: videosService)
-    }
+    // If you still need a local ref
+    @StateObject private var notificationManager = NotificationManager.shared
+    var downloadStore: DownloadsStore = DownloadsStore()
     
     private var activePlan: Plan? {
+        // Optionally read from sharedVM.activePlan if you want
+        // Or decode from loggedInState
+        if let plan = sharedVM.activePlan {
+            return plan
+        }
         return decodeLoggedInState(from: loggedInStateData)?.activePlan
     }
     
-    /// Computed property that extracts the `code` from the loggedInState (if present).
     private var code: String {
         decodeLoggedInState(from: loggedInStateData)?.code ?? ""
     }
-
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -59,25 +48,24 @@ struct VideoListView: View {
                     downloadsLink
                     continueWatching
                     
-                    if isLoading {
+                    if sharedVM.isLoading {
                         loadingRow
                     }
                     
-                    if videos.isEmpty && !isLoading {
+                    if sharedVM.videos.isEmpty && !sharedVM.isLoading {
                         emptyOrErrorStateRows
                     } else {
-                        if isOffline {
+                        if sharedVM.isOffline {
                             offlineBannerRow
                         }
                         
-                        ForEach(videos) { video in
+                        ForEach(sharedVM.videos) { video in
                             VideoRow(
                                 video: video,
                                 isDownloaded: downloadStore.isDownloaded(videoId: video.id)
                             )
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                // Only allow playing if it's fully processed
                                 if video.status == .postProcessingSuccess {
                                     selectedVideo = video
                                 } else {
@@ -96,17 +84,19 @@ struct VideoListView: View {
                 .onAppear {
                     if !pageLoaded {
                         Task {
-                            // Fetch the latest plan, then load videos
+                            // Example: fetch plan first
                             await fetchPlan()
-                            loadVideos()
+                            // Then load
+                            await sharedVM.loadVideos(useCache: true)
                             pageLoaded = true
                         }
                     }
                 }
                 .onReceive(networkMonitor.$isConnected) { isConnected in
-                    if isConnected, isOffline, !isInitialLoad {
+                    // If we just got reconnected, refresh
+                    if isConnected, sharedVM.isOffline, !sharedVM.isInitialLoad {
                         Task {
-                            await handleRefresh()
+                            await sharedVM.refreshVideos(forceRefresh: true)
                         }
                     }
                 }
@@ -117,13 +107,12 @@ struct VideoListView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    // Display the freshly fetched plan name if available, else fallback
                     PlanBadgeView(planName: activePlan?.name ?? .free)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: {
                         Task {
-                            await handleRefresh(forceRefresh: true)
+                            await sharedVM.refreshVideos(forceRefresh: true)
                         }
                     }) {
                         Image(systemName: "arrow.clockwise")
@@ -133,7 +122,7 @@ struct VideoListView: View {
             .alert("Error", isPresented: $showErrorAlert) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text(errorMessage ?? "An unknown error occurred.")
+                Text(sharedVM.errorMessage ?? "An unknown error occurred.")
             }
             .alert("Confirm Logout", isPresented: $showLogoutConfirmation) {
                 Button("Cancel", role: .cancel) {}
@@ -159,7 +148,7 @@ struct VideoListView: View {
     }
     
     // MARK: - Subviews
-
+    
     private var downloadsLink: some View {
         NavigationLink(destination: DownloadList(code: code)) {
             HStack(alignment: .center, spacing: 8) {
@@ -181,11 +170,10 @@ struct VideoListView: View {
     private var continueWatching: some View {
         Group {
             if let resume = activePlan?.features?.resumeFeature, resume == true {
-                // Example: show if there's a resumed video. You could also gate behind plan?.features?.resumeFeature if you want
                 if PlaybackProgressService.shared.getMostRecentlyUpdatedVideoId() != nil {
                     Button {
                         if let latestVideoId = PlaybackProgressService.shared.getMostRecentlyUpdatedVideoId() {
-                            if let matchingVideo = videos.first(where: { $0.id == latestVideoId }) {
+                            if let matchingVideo = sharedVM.videos.first(where: { $0.id == latestVideoId }) {
                                 if matchingVideo.status == .postProcessingSuccess {
                                     selectedVideo = matchingVideo
                                 } else {
@@ -208,7 +196,6 @@ struct VideoListView: View {
                     .buttonStyle(.automatic)
                 }
             }
-
         }
     }
     
@@ -231,7 +218,7 @@ struct VideoListView: View {
                 .frame(width: 80, height: 80)
                 .foregroundColor(.gray.opacity(0.8))
             
-            if let error = errorMessage {
+            if let error = sharedVM.errorMessage {
                 Text("Failed to load videos")
                     .font(.headline)
                 Text(error)
@@ -241,7 +228,7 @@ struct VideoListView: View {
                 
                 Button("Retry") {
                     Task {
-                        await handleRefresh(forceRefresh: true)
+                        await sharedVM.refreshVideos(forceRefresh: true)
                     }
                 }
                 .buttonStyle(.borderedProminent)
@@ -309,164 +296,34 @@ struct VideoListView: View {
     
     // MARK: - Methods
     
-    /// Fetch the user's latest plan from Supabase (via UserSettingsService).
     private func fetchPlan() async {
         do {
-            // 1) Get userId from loggedInState
             if let userId = decodeLoggedInState(from: loggedInStateData)?.userId {
-                // 2) Grab the latest plan (or fallback to cache if you prefer).
                 let freshPlan = try await mainUserSettingsService.fetchActivePlan(forUserId: userId)
                 
-                // 3) Update our local @State property
-                await MainActor.run {
-                    // --- Update the loggedInStateData here ---
-                    if var currentState = decodeLoggedInState(from: loggedInStateData) {
-                        // E.g., update planName to reflect the new plan (or fallback to "Free")
-                        currentState.activePlan = freshPlan
-                        
-                        // Re-encode and store it back
-                        if let newData = encodeLoggedInState(currentState) {
-                            loggedInStateData = newData
-                        }
+                // Optionally store it in the shared VM as well
+                sharedVM.activePlan = freshPlan
+                
+                // Or update your loggedInState again
+                if var currentState = decodeLoggedInState(from: loggedInStateData) {
+                    currentState.activePlan = freshPlan
+                    if let newData = encodeLoggedInState(currentState) {
+                        loggedInStateData = newData
                     }
                 }
             }
         } catch {
-            // If it fails, plan stays nil
             print("[VideoListView] fetchPlan failed:", error)
         }
     }
-
-    private func loadVideos() {
-        Task {
-            await MainActor.run {
-                isLoading = true
-                errorMessage = nil
-            }
-            defer {
-                Task { @MainActor in isLoading = false }
-            }
-            
-            do {
-                let fetchedVideos = try await cachedVideosService.fetchVideos(forCode: code, useCache: true)
-                await MainActor.run {
-                    videos = fetchedVideos
-                    isOffline = false
-                    errorMessage = nil
-                    isInitialLoad = false
-                }
-            } catch {
-                let cached = loadCachedVideos()
-                await MainActor.run {
-                    if let cached = cached, !cached.isEmpty {
-                        videos = cached
-                        isOffline = true
-                        errorMessage = error.localizedDescription
-                    } else {
-                        videos = []
-                        isOffline = true
-                        errorMessage = error.localizedDescription
-                    }
-                    isInitialLoad = false
-                }
-            }
-        }
-    }
-
-    /// Also refresh the plan so we always have the most current subscription state.
-    private func handleRefresh(forceRefresh: Bool = true) async {
-        // 1) Fetch the plan first
-        await fetchPlan()
-        
-        await MainActor.run {
-            errorMessage = nil
-            isLoading = true
-        }
-        
-        let oldVideos = videos
-        defer {
-            Task { @MainActor in isLoading = false }
-        }
-        
-        do {
-            let fetchedVideos = try await (
-                forceRefresh
-                ? cachedVideosService.refreshVideos(forCode: code)
-                : cachedVideosService.fetchVideos(forCode: code, useCache: true)
-            )
-            
-            let fetchedIDs = Set(fetchedVideos.map { $0.id })
-            let missingVideos = oldVideos.filter { !fetchedIDs.contains($0.id) }
-            
-            await MainActor.run {
-                videos = fetchedVideos
-                isOffline = false
-                errorMessage = nil
-                isInitialLoad = false
-            }
-            
-            // Clean up any missing videos from disk
-            for missingVid in missingVideos {
-                VideoDownloadManager.shared.deleteVideoFor(code: missingVid.code, videoId: missingVid.id)
-            }
-        } catch {
-            let cached = loadCachedVideos()
-            await MainActor.run {
-                if let cached = cached, !cached.isEmpty {
-                    videos = cached
-                    isOffline = true
-                    errorMessage = error.localizedDescription
-                } else {
-                    videos = []
-                    errorMessage = error.localizedDescription
-                    isOffline = true
-                }
-                isInitialLoad = false
-            }
-        }
-    }
     
-    private func loadCachedVideos() -> [Video]? {
-        cachedVideosService.loadCachedVideos()
-    }
-
-    private func deleteVideo(at offsets: IndexSet) {
-        Task {
-            if let index = offsets.first {
-                let video = videos[index]
-                do {
-                    try await videosService.deleteVideo(withId: video.id)
-                    cachedVideosService.removeFromCache(id: video.id)
-                    VideoDownloadManager.shared.deleteVideoFor(code: video.code, videoId: video.id)
-                    await handleRefresh(forceRefresh: false)
-                } catch {
-                    await MainActor.run {
-                        errorMessage = error.localizedDescription
-                        showErrorAlert = true
-                    }
-                }
-            }
-        }
-    }
-
     private func deleteAllVideosAndLogout() async {
-        await MainActor.run {
-            isDeletingAll = true
-        }
-        defer {
-            Task { @MainActor in isDeletingAll = false }
-        }
+        isDeletingAll = true
+        defer { isDeletingAll = false }
         
-        // Clear the entire loggedInState
-        await MainActor.run {
-            loggedInStateData = Data()  // remove the user's logged-in info
-        }
-        
-        Task.detached {
-            await downloadStore.clearAllDownloads()
-            await cachedVideosService.clearCache()
-            PlaybackProgressService.shared.clearAllProgress()
-            VideoDownloadManager.shared.deleteAllSavedVideos()
-        }
+//        await sharedVM.deleteAllVideosAndLogout(
+//            loggedInStateData: &loggedInStateData,
+//            downloadStore: downloadStore
+//        )
     }
 }

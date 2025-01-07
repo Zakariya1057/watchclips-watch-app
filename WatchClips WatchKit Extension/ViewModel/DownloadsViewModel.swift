@@ -19,7 +19,10 @@ protocol SegmentedDownloadManagerDelegate: AnyObject {
 @MainActor
 class DownloadsViewModel: ObservableObject {
     // MARK: - Published Properties
+    @EnvironmentObject var sharedVM: SharedVideosViewModel
+    
     @Published var videos: [DownloadedVideo] = []
+    
     @Published var isLoading = false
     @Published var errorMessage: String?
     
@@ -49,7 +52,7 @@ class DownloadsViewModel: ObservableObject {
         print("[DownloadsViewModel] Loaded \(videos.count) local downloads from store.")
     }
     
-    private func persist() {
+    func persist() {
         print("[DownloadsViewModel] Persisting downloads to store...")
         store.saveDownloads(videos)
         print("[DownloadsViewModel] Persist complete.")
@@ -312,6 +315,37 @@ extension DownloadsViewModel: DownloadManagerDelegate {
             let msg = "[DownloadsViewModel] [OldDelegate] \(videoId) => Fail: \(error.localizedDescription)"
             print(msg)
             updateStatus(videoId, status: .error, errorMessage: error.localizedDescription)
+        }
+    }
+}
+
+extension DownloadsViewModel {
+    /// Return the `DownloadedVideo` item for a given `Video`,
+    /// or create one if it doesn't exist in our local array.
+    func itemFor(video: Video) -> DownloadedVideo {
+        if let existing = videos.first(where: { $0.id == video.id }) {
+            // Return updated version if needed
+            return DownloadedVideo(
+                video: video,
+                downloadStatus: existing.downloadStatus,
+                downloadedBytes: existing.downloadedBytes,
+                totalBytes: existing.totalBytes,
+                errorMessage: existing.errorMessage
+            )
+        } else {
+            let newDownload = DownloadedVideo(
+                video: video,
+                downloadStatus: .notStarted,
+                downloadedBytes: 0,
+                totalBytes: video.size ?? 0,
+                errorMessage: nil
+            )
+            
+            videos.append(newDownload)
+            
+            persist()
+            
+            return newDownload
         }
     }
 }

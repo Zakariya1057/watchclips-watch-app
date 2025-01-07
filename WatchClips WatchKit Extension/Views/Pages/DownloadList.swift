@@ -1,23 +1,23 @@
+//
+//  DownloadList.swift
+//  WatchClips
+//
+//  Created by Zakariya Hassan on 31/12/2024.
+//
+
 import SwiftUI
 
 struct DownloadList: View {
-    /// Instead of creating a new DownloadsdownloadsVM,
-    /// we rely on the parent to provide it as an environment object.
     @EnvironmentObject var downloadsVM: DownloadsViewModel
-    @EnvironmentObject var videosService: VideosService
+    @EnvironmentObject var sharedVM: SharedVideosViewModel
     
     @Environment(\.dismiss) private var dismiss
     
-    /// Alert shown if user tries to download but the video is still post-processing
     @State private var showProcessingAlert = false
-
-    /// Used to present the fullScreenCover with a playable video
     @State private var selectedVideo: Video?
 
     let code: String
-
-    /// Simple init that just stores the code.
-    /// We no longer create a new `DownloadsdownloadsVM` here.
+    
     init(code: String) {
         self.code = code
     }
@@ -26,8 +26,8 @@ struct DownloadList: View {
     
     var body: some View {
         VStack {
-            // 1) Loading or Error states
-            if downloadsVM.isLoading {
+            // If you want the user to see an updated sharedVM.videos list:
+            if sharedVM.isLoading {
                 HStack {
                     ProgressView("Loading videos...")
                         .progressViewStyle(CircularProgressViewStyle())
@@ -36,8 +36,8 @@ struct DownloadList: View {
                 .listRowBackground(Color.black)
             }
             
-            if downloadsVM.videos.isEmpty {
-                if let error = downloadsVM.errorMessage {
+            if sharedVM.videos.isEmpty {
+                if let error = sharedVM.errorMessage {
                     Text("Failed or no videos: \(error)")
                 } else {
                     VStack(spacing: 16) {
@@ -53,37 +53,45 @@ struct DownloadList: View {
                     .padding(.vertical, 20)
                 }
             } else {
-                // 2) Actual list of downloads
+                // Show the server's videos from sharedVM
                 List {
-                    ForEach(downloadsVM.videos) { item in
+                    ForEach(sharedVM.videos) { vid in
+                        // Convert to DownloadedVideo if we have a local record
+                        let downloadedVideo: DownloadedVideo = downloadsVM.itemFor(video: vid)
+                        
                         DownloadRow(
-                            video: item,
-                            progress: downloadsVM.progress(for: item),
-                            isFullyDownloaded: downloadsVM.isFullyDownloaded(item),
+                            video: downloadedVideo,
+                            progress: downloadsVM.progress(for: downloadedVideo),
+                            isFullyDownloaded: downloadsVM.isFullyDownloaded(downloadedVideo),
                             startOrResumeAction: {
-                                downloadsVM.startOrResumeDownload(item)
+                                // If it's still post-processing, show alert
+                                if downloadedVideo.video.status != .postProcessingSuccess {
+                                    showProcessingAlert = true
+                                } else {
+                                    downloadsVM.startOrResumeDownload(downloadedVideo)
+                                }
                             },
                             pauseAction: {
-                                downloadsVM.pauseDownload(item)
+                                downloadsVM.pauseDownload(downloadedVideo)
                             },
                             deleteAction: {
-                                downloadsVM.deleteVideo(item)
+                                downloadsVM.deleteVideo(downloadedVideo)
                             },
                             onProcessingNeeded: {
                                 showProcessingAlert = true
                             }
                         )
-                        .contentShape(Rectangle()) // Ensures the entire row is tappable
+                        .contentShape(Rectangle())
                         .onTapGesture {
-                            if item.downloadStatus == .completed {
-                                selectedVideo = item.video
-                            } else if item.video.status != .postProcessingSuccess {
+                            if downloadedVideo.downloadStatus == .completed {
+                                selectedVideo = downloadedVideo.video
+                            } else if downloadedVideo.video.status != .postProcessingSuccess {
                                 showProcessingAlert = true
                             }
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
-                                downloadsVM.deleteVideo(item)
+                                downloadsVM.deleteVideo(downloadedVideo)
                             } label: {
                                 Label("Delete", systemImage: "trash")
                             }
@@ -102,46 +110,40 @@ struct DownloadList: View {
             }
             
             ToolbarItem(placement: .topBarTrailing) {
+                // Now call the SHARED VM refresh
                 Button {
                     Task {
-                        await downloadsVM.loadServerVideos(forCode: code, useCache: false)
+                        await sharedVM.refreshVideos(forceRefresh: true)
                     }
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
             }
         }
-        .onChange(of: scenePhase, { oldValue, newValue in
-            if newValue == .active {
-                Task {
-                    downloadsVM.onAppearCheckForURLChanges()
-                }
-            }
-        })
-        .onAppear {
-            // Only fetch fresh server videos.
-            // If you also want local/resume logic,
-            // call `downloadsVM.loadLocalDownloads()` etc. here as well.
-            Task {
-                await downloadsVM.loadServerVideos(forCode: code, useCache: false)
+        .onChange(of: scenePhase) { newPhase in
+            if newPhase == .active {
+                // If you want to recheck any partial downloads, etc.
+
                 downloadsVM.onAppearCheckForURLChanges()
             }
         }
+        .onAppear {
+            downloadsVM.onAppearCheckForURLChanges()
+        }
         .navigationBarBackButtonHidden(true)
-        // Present the player in full screen for a fully downloaded video
         .fullScreenCover(item: $selectedVideo) { video in
             VideoPlayerView(code: video.code, videoId: video.id, filename: video.filename)
                 .ignoresSafeArea()
         }
-        // Alert if the user tries to download/play a video that's still processing
         .alert("Video Not Ready", isPresented: $showProcessingAlert) {
             Button("OK", role: .cancel) {
+                // Attempt a refresh if you want
                 Task {
-                    await downloadsVM.loadServerVideos(forCode: code, useCache: false)
+                    await sharedVM.refreshVideos(forceRefresh: true)
                 }
             }
         } message: {
-            Text("We’re still optimizing this video for Apple Watch. Please try downloading again soon.")
+            Text("We’re still optimizing this video for Apple Watch. Please try again soon.")
         }
     }
 }
