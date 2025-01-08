@@ -68,7 +68,7 @@ struct VideoPlayerView: View {
             if isLoading && downloadError == nil {
                 ZStack {
                     Color.black
-                        .opacity(0.8)
+                        .opacity(1)
                         .ignoresSafeArea()
                     
                     VStack(spacing: 16) {
@@ -90,6 +90,7 @@ struct VideoPlayerView: View {
             // The AVPlayer-based VideoPlayer
             if let player = player {
                 VideoPlayer(player: player)
+                    .opacity(downloadError == nil ? 1 : 0)
                     .onAppear {
                         if isPlaying {
                             player.play()
@@ -117,27 +118,32 @@ struct VideoPlayerView: View {
                     }
                     .zIndex(2)
             }
-            
-            // Error overlay
             if let error = downloadError {
-                Color.black.opacity(0.4)
-                    .ignoresSafeArea()
-                
-                VStack {
-                    Text("Error loading video")
+                ZStack(alignment: .center) {
+                    Color.black
+                        .opacity(1)
+                        .ignoresSafeArea()
+                    
+                    VStack(alignment: .center, spacing: 10) {
+                        Text("Error loading video")
+                            .foregroundColor(.white)
+                            .font(.headline)
+                        
+                        Text(error)
+                            .foregroundColor(.white)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                        
+                        Button("Retry") {
+                            downloadError = nil
+                            prepareToPlay()
+                        }
                         .foregroundColor(.white)
                         .padding()
-                    Text(error)
-                        .foregroundColor(.white)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                    
-                    Button("Retry") {
-                        downloadError = nil
-                        prepareToPlay()
                     }
-                    .padding()
-                    .foregroundColor(.white)
+                    // Expands the VStack to fill the entire ZStack,
+                    // with content aligned to the center.
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 }
                 .zIndex(3)
             }

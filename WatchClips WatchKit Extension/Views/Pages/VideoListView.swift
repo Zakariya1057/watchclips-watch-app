@@ -72,7 +72,7 @@ struct VideoListView: View {
                                 }
                             }
                             .listRowBackground(Color.clear)
-                            .listRowInsets(EdgeInsets(top: 0, leading: 10, bottom: 10, trailing: 10))
+                            .listRowInsets(EdgeInsets(top: 10, leading: 10, bottom: 10, trailing: 10))
                         }
                     }
                     
@@ -97,6 +97,7 @@ struct VideoListView: View {
                 .onReceive(networkMonitor.$isConnected) { isConnected in
                     if isConnected, sharedVM.isOffline, !sharedVM.isInitialLoad {
                         Task {
+                            sharedVM.isOffline = true
                             await sharedVM.refreshVideos(code: code, forceRefresh: true)
                         }
                     }

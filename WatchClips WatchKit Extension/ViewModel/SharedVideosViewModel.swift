@@ -63,7 +63,10 @@ class SharedVideosViewModel: ObservableObject {
             let fetchedVideos = try await cachedVideosService.fetchVideos(forCode: code, useCache: useCache)
             self.videos = fetchedVideos
             onDeletedVideo(newVideos: fetchedVideos, oldVideos: oldVideos)
-            self.isOffline = false
+            
+            if isOffline, !useCache {
+                self.isOffline = false
+            }
             self.isInitialLoad = false
         } catch {
             // Attempt to use local cached videos
@@ -115,11 +118,14 @@ class SharedVideosViewModel: ObservableObject {
                 : oldVideos
             )
             
+            
+            if isOffline, forceRefresh {
+                self.isOffline = false
+            }
+            
             self.videos = fetchedVideos
-            self.isOffline = false
             self.isInitialLoad = false
             self.errorMessage = nil
-            
             onDeletedVideo(newVideos: fetchedVideos, oldVideos: oldVideos)
         } catch {
             let cached = cachedVideosService.loadCachedVideos()
@@ -149,8 +155,6 @@ class SharedVideosViewModel: ObservableObject {
                 forUserId: userId,
                 useCache: useCache
             )
-            
-            print(plan)
             
             self.activePlan = plan
         } catch {
