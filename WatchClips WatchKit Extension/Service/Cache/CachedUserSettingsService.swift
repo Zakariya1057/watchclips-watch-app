@@ -34,18 +34,6 @@ class CachedUserSettingsService: ObservableObject {
      - If `userId` is `nil`, only local cache will be used (if `useCache == true`).
     */
     func fetchActivePlan(forUserId userId: UUID?, useCache: Bool = true) async throws -> Plan? {
-        
-        // If userId is nil, we cannot fetch from remote. Use cache if possible, else return nil.
-        guard let userId = userId else {
-            if useCache {
-                // Return whatever is in local cache
-                return loadCachedPlan()
-            } else {
-                // No remote fetch possible, skip local, return nil
-                return nil
-            }
-        }
-        
         // 1) Attempt to load from local cache
         if useCache, let cachedPlan = repository.loadPlan() {
             // Return cached plan immediately

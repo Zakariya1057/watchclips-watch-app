@@ -156,6 +156,8 @@ class SharedVideosViewModel: ObservableObject {
                 useCache: useCache
             )
             
+            print(plan)
+            
             self.activePlan = plan
         } catch {
             print("[SharedVideosViewModel] fetchPlan failed: \(error)")

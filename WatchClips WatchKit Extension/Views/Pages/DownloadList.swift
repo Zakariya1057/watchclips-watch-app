@@ -15,18 +15,22 @@ struct DownloadList: View {
     
     @State private var showProcessingAlert = false
     @State private var selectedVideo: Video?
-
+    
     let code: String
     
     init(code: String) {
         self.code = code
     }
-
+    
     @Environment(\.scenePhase) private var scenePhase
     
     var body: some View {
         VStack {
+            
+            // 1) Loading / Empty states...
             if sharedVM.videos.isEmpty {
+                
+                // Show progress if loading
                 if sharedVM.isLoading {
                     HStack {
                         ProgressView("Loading videos...")
@@ -35,6 +39,7 @@ struct DownloadList: View {
                     }
                 }
                 
+                // If there's an error, show it...
                 if let error = sharedVM.errorMessage {
                     Text("Failed or no videos: \(error)")
                 } else {
@@ -50,8 +55,13 @@ struct DownloadList: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 20)
                 }
+                
             } else {
+                
+                // 2) Main List of videos...
                 List {
+                    
+                    // Show top-of-list progress if still loading more
                     if sharedVM.isLoading {
                         HStack {
                             ProgressView("Loading videos...")
@@ -60,7 +70,11 @@ struct DownloadList: View {
                         }
                     }
                     
-                    ForEach(sharedVM.videos) { vid in
+                    // IMPORTANT: Make sure Video is Identifiable
+                    // If not, do: ForEach(sharedVM.videos, id: \.someUniqueField) { vid in
+                    ForEach(sharedVM.videos, id: \.id) { vid in
+                        
+                        // Convert to "DownloadedVideo"
                         let downloadedVideo: DownloadedVideo = downloadsVM.itemFor(video: vid)
                         
                         DownloadRow(
@@ -85,8 +99,8 @@ struct DownloadList: View {
                                 showProcessingAlert = true
                             }
                         )
-                        // Removed .contentShape(Rectangle()) to avoid potential gesture conflicts
                         .onTapGesture {
+                            // Attempt to play if downloaded
                             if downloadedVideo.downloadStatus == .completed {
                                 selectedVideo = downloadedVideo.video
                             } else if downloadedVideo.video.status != .postProcessingSuccess {
@@ -102,11 +116,11 @@ struct DownloadList: View {
                         }
                     }
                 }
-                // Use a plain list style which helps reduce some layout issues
-                .listStyle(.plain)
+                .listStyle(.plain) // Plain list style can reduce some layout quirks
             }
         }
         .toolbar {
+            // Leading "Back" button
             ToolbarItem(placement: .topBarLeading) {
                 Button {
                     dismiss()
@@ -114,12 +128,15 @@ struct DownloadList: View {
                     Image(systemName: "chevron.left")
                 }
             }
-            
+            // Refresh button
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
+                    // Optionally remove animation
+                    // withAnimation(.none) {
                     Task {
                         await sharedVM.refreshVideos(code: code, forceRefresh: true)
                     }
+                    // }
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
@@ -127,24 +144,31 @@ struct DownloadList: View {
         }
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
+                // Only trigger if needed
                 DispatchQueue.main.async {
                     downloadsVM.onAppearCheckForURLChanges()
                 }
             }
         }
         .onAppear {
-            DispatchQueue.main.async {
+            // Let the view fully appear, then check for changes
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 downloadsVM.onAppearCheckForURLChanges()
             }
         }
         .navigationBarBackButtonHidden(true)
+        
+        // 3) Full-Screen Video Playback
         .fullScreenCover(item: $selectedVideo) { video in
             VideoPlayerView(code: video.code, videoId: video.id, filename: video.filename)
                 .ignoresSafeArea()
         }
+        
+        // 4) “Video Not Ready” Alert
         .alert("Video Not Ready", isPresented: $showProcessingAlert) {
             Button("OK", role: .cancel) {
                 Task {
+                    // force a refresh to see if video has finished processing
                     await sharedVM.refreshVideos(code: code, forceRefresh: true)
                 }
             }
