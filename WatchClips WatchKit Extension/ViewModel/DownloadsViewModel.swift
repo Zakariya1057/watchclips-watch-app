@@ -19,6 +19,11 @@ protocol SegmentedDownloadManagerDelegate: AnyObject {
 @MainActor
 class DownloadsViewModel: ObservableObject {
     // MARK: - Published Properties
+    
+    // If you need a shared VM from environment, do it in the SwiftUI View instead,
+    // because @EnvironmentObject inside a ViewModel can be tricky.
+    // For demonstration, we'll leave this as-is, but typically you'd pass `SharedVideosViewModel`
+    // into the constructor or otherwise manage it externally.
     @EnvironmentObject var sharedVM: SharedVideosViewModel
     
     @Published var videos: [DownloadedVideo] = []
@@ -42,13 +47,40 @@ class DownloadsViewModel: ObservableObject {
         bgManager.oldDelegate = self
         
         print("[DownloadsViewModel] Initialized with CachedVideosService.")
+        
+        // Load previously saved downloads on initialization:
+        loadLocalDownloads()
+        
+        // Attempt to resume any downloads that were in-progress
+        // when the app was last running:
+        resumeInProgressDownloads()
     }
     
     // MARK: - Local Persistence
     
+    func setVideos(newVideos: [Video]) {
+        let downloadedVideo = store.loadDownloads()
+        
+        self.videos = newVideos.map({ video in
+            let downloadVideo = downloadedVideo.first { $0.video.id == video.id }
+            
+            debugPrint(downloadVideo)
+            
+            return DownloadedVideo(
+                video: video,
+                downloadStatus: downloadVideo?.downloadStatus ?? .notStarted,
+                downloadedBytes: downloadVideo?.downloadedBytes ?? 0,
+                totalBytes: downloadVideo?.totalBytes ?? 0
+            )
+        })
+    }
+    
     func loadLocalDownloads() {
         print("[DownloadsViewModel] Loading locally persisted downloads from store...")
         self.videos = store.loadDownloads()
+//        for video in videos {
+////            print(video)
+//        }
         print("[DownloadsViewModel] Loaded \(videos.count) local downloads from store.")
     }
     
@@ -76,7 +108,8 @@ class DownloadsViewModel: ObservableObject {
         // Mark it as "downloading" in our local model
         self.updateStatus(item.id, status: .downloading, errorMessage: nil)
         
-        // Let the chunk-based manager do the rest
+        // Let the chunk-based manager do the rest;
+        // presumably 'resumeDownload' will do the right thing if partial data exists:
         self.bgManager.resumeDownload(videoId: item.id, from: remoteURL)
     }
     
@@ -112,10 +145,12 @@ class DownloadsViewModel: ObservableObject {
         persist()
     }
     
+    // MARK: - FIX: Resume in-progress downloads properly
     func resumeInProgressDownloads() {
         print("[DownloadsViewModel] Attempting to resume in-progress downloads (chunk-based).")
-
+        
         for item in videos where item.downloadStatus == .downloading {
+            // Check if the manager believes there's an active task for this video.
             let isActive = bgManager.isTaskActive(videoId: item.id)
             if !isActive {
                 guard let remoteURL = buildRemoteURL(item.video) else {
@@ -123,8 +158,9 @@ class DownloadsViewModel: ObservableObject {
                     continue
                 }
                 
-                print("[DownloadsViewModel] Re-queuing \(item.id) because it was .downloading but not active in manager.")
-                bgManager.startDownload(videoId: item.id, from: remoteURL)
+                // IMPORTANT: Use resumeDownload instead of startDownload
+                print("[DownloadsViewModel] Resuming chunk-based download for \(item.id) ...")
+                bgManager.resumeDownload(videoId: item.id, from: remoteURL)
             }
         }
     }
@@ -270,11 +306,12 @@ extension DownloadsViewModel: DownloadManagerDelegate {
     }
 }
 
+// MARK: - itemFor(video:)
 extension DownloadsViewModel {
     /// Return the `DownloadedVideo` item for a given `Video`,
     /// or create one if it doesn't exist in our local array.
     func itemFor(video: Video) -> DownloadedVideo {
-        if let existing = videos.first(where: { $0.id == video.id }) {
+        if let existing = videos.first(where: { $0.video.id == video.id }) {
             // Return updated version if needed
             return DownloadedVideo(
                 video: video,

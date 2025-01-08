@@ -134,7 +134,6 @@ struct DownloadList: View {
         }
         .onAppear {
             DispatchQueue.main.async {
-                downloadsVM.loadLocalDownloads()
                 downloadsVM.onAppearCheckForURLChanges()
             }
         }

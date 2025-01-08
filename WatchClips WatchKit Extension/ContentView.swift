@@ -13,6 +13,8 @@ struct ContentView: View {
         decodeLoggedInState(from: loggedInStateData)?.code
     }
     
+    @State private var videosSet: Bool = false
+    
     var body: some View {
         
         if loggedInStateData.isEmpty {
@@ -26,8 +28,9 @@ struct ContentView: View {
                         .onAppear {
                             Task {
                                 if let code = code {
-                                    let cachedVideos = (try? await cachedService.fetchVideos(forCode: code)) ?? []
-                                    sharedVM.setVideos(cachedVideos: cachedVideos)
+                                    await sharedVM.loadVideos(code: code, useCache: !videosSet)
+                                    downloadViewModel.setVideos(newVideos: sharedVM.videos)
+                                    self.videosSet = true
                                 }
                             }
                         }

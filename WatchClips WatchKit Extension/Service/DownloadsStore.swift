@@ -1,6 +1,8 @@
 import Foundation
 
 class DownloadsStore {
+    static let shared = DownloadsStore()
+    
     // Instead of userDefaultsKey, we have a repository
     private let repository = DownloadsRepository.shared
 

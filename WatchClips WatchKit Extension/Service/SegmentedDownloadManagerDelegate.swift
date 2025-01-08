@@ -225,6 +225,12 @@ class SegmentedDownloadManager: NSObject {
         activeDownloads.removeValue(forKey: videoId)
     }
     
+    func deleteAllSavedVideos() {
+        for video in DownloadsStore.shared.loadDownloads() {
+            removeDownloadCompletely(videoId: video.id)
+        }
+    }
+    
     /// Delete final MP4 and partial chunks, but keep metadata if desired.
     /// (If you want a total removal, call `removeDownloadCompletely`.)
     func deleteLocalFile(videoId: String) {

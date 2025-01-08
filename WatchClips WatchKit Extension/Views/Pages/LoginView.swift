@@ -2,7 +2,7 @@ import SwiftUI
 import Supabase
 
 struct LoginView: View {
-    @State private var code = ""
+    @State private var code = "SP45G0"
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showHelpAlert = false
@@ -90,8 +90,6 @@ struct LoginView: View {
                 if let userUUID = codeRecord.userId {
                     plan = try? await userSettingsService.fetchActivePlan(forUserId: userUUID)
                 }
-                
-                print(plan)
                 
                 let newState = LoggedInState(code: codeRecord.id, userId: codeRecord.userId, activePlan: plan)
                 let encoded = try JSONEncoder().encode(newState)

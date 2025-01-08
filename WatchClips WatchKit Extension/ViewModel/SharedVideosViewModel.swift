@@ -46,6 +46,7 @@ class SharedVideosViewModel: ObservableObject {
         do {
             let fetchedVideos = try await cachedVideosService.fetchVideos(forCode: code, useCache: useCache)
             self.videos = fetchedVideos
+            onDeletedVideo(newVideos: fetchedVideos)
             self.isOffline = false
             self.isInitialLoad = false
         } catch {
@@ -64,12 +65,29 @@ class SharedVideosViewModel: ObservableObject {
         }
     }
     
+    func onDeletedVideo(newVideos: [Video]) {
+        let oldVideos = self.videos
+        
+        // figure out which videos are "missing" after refresh
+        let fetchedIDs = Set(newVideos.map(\.id))
+        let missingVideos = oldVideos.filter { !fetchedIDs.contains($0.id) }
+        
+        // Clean up missing videos from disk if you want
+        for missingVid in missingVideos {
+            Task {
+                DownloadsStore.shared.removeById(videoId: missingVid.id)
+                SegmentedDownloadManager.shared.removeDownloadCompletely(videoId: missingVid.id)
+                PlaybackProgressService.shared.clearProgress(videoId: missingVid.id)
+            }
+        }
+    }
+    
     // MARK: - Refresh 
     func refreshVideos(code: String, forceRefresh: Bool = true) async {
         isLoading = true
         errorMessage = nil
         
-        let oldVideos = self.videos
+
         defer { isLoading = false }
         
         do {
@@ -79,19 +97,13 @@ class SharedVideosViewModel: ObservableObject {
                 : cachedVideosService.fetchVideos(forCode: code, useCache: true)
             )
             
-            // figure out which videos are "missing" after refresh
-            let fetchedIDs = Set(fetchedVideos.map(\.id))
-            let missingVideos = oldVideos.filter { !fetchedIDs.contains($0.id) }
-            
             self.videos = fetchedVideos
             self.isOffline = false
             self.isInitialLoad = false
             self.errorMessage = nil
             
-            // Clean up missing videos from disk if you want
-            for missingVid in missingVideos {
-                VideoDownloadManager.shared.deleteVideoFor(code: missingVid.code, videoId: missingVid.id)
-            }
+
+            onDeletedVideo(newVideos: fetchedVideos)
         } catch {
             let cached = cachedVideosService.loadCachedVideos()
             if let cached = cached, !cached.isEmpty {
@@ -110,7 +122,6 @@ class SharedVideosViewModel: ObservableObject {
     // MARK: - Plan fetching (optional)
     /// Example method to fetch the user plan from your existing service
     func fetchPlan(userSettingsService: UserSettingsService, userId: UUID) async {
-        print("User id: \(userId)")
         do {
             let freshPlan = try await userSettingsService.fetchActivePlan(forUserId: userId)
             self.activePlan = freshPlan
@@ -138,7 +149,7 @@ class SharedVideosViewModel: ObservableObject {
             await self.cachedVideosService.clearCache()
             SegmentedDownloadManager.shared.clearAllActiveDownloads()
             PlaybackProgressService.shared.clearAllProgress()
-            VideoDownloadManager.shared.deleteAllSavedVideos()
+            SegmentedDownloadManager.shared.deleteAllSavedVideos()
         }
     }
 }
