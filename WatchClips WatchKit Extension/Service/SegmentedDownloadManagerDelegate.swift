@@ -209,6 +209,7 @@ class SegmentedDownloadManager: NSObject {
     }
     
     /// Completely remove (cancel tasks + partial chunks + final file + metadata)
+    /// Completely remove (cancel tasks + partial chunks + final file + metadata)
     func removeDownloadCompletely(videoId: String) {
         print("[SegmentedDownloadManager] Removing \(videoId) completely.")
         
@@ -218,7 +219,7 @@ class SegmentedDownloadManager: NSObject {
         // 2) Delete partial segments + final file
         deleteLocalFile(videoId: videoId)
         
-        // 3) Remove from metadata
+        // 3) Remove from metadata (this also triggers saveMetadataListToDisk via didSet)
         metadataList.removeValue(forKey: videoId)
         
         // 4) Remove from activeDownloads just in case
@@ -230,31 +231,93 @@ class SegmentedDownloadManager: NSObject {
             removeDownloadCompletely(videoId: video.id)
         }
     }
-    
-    /// Delete final MP4 and partial chunks, but keep metadata if desired.
-    /// (If you want a total removal, call `removeDownloadCompletely`.)
+
+    func wipeAllDownloadsCompletely() {
+        print("[SegmentedDownloadManager] Wiping everything clean!")
+
+        // 1) Cancel and remove all active downloads
+        clearAllActiveDownloads() // calls `removeDownloadCompletely` on each active video
+
+        // 2) Remove entire metadataList (triggers a metadata save, which will now be empty)
+        metadataList.removeAll()
+
+        // 3) Delete the metadata JSON file from disk
+        let metaListFile = metadataListURL()
+        if FileManager.default.fileExists(atPath: metaListFile.path) {
+            try? FileManager.default.removeItem(at: metaListFile)
+            print("[SegmentedDownloadManager] Removed metadataList file => \(metaListFile.lastPathComponent)")
+        }
+
+        // 4) Remove all .mp4 files in the caches directory
+        let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        do {
+            let allCacheFiles = try FileManager.default.contentsOfDirectory(atPath: cachesDir.path)
+            for fileName in allCacheFiles where fileName.hasSuffix(".mp4") {
+                let fileURL = cachesDir.appendingPathComponent(fileName)
+                try? FileManager.default.removeItem(at: fileURL)
+                print("[SegmentedDownloadManager] Removed => \(fileURL.lastPathComponent)")
+            }
+        } catch {
+            print("[SegmentedDownloadManager] [ERROR] reading cachesDir => \(error)")
+        }
+
+        // 5) Remove any leftover partial segments from the temp directory
+        let tmpDir = FileManager.default.temporaryDirectory
+        do {
+            let allTempFiles = try FileManager.default.contentsOfDirectory(atPath: tmpDir.path)
+            for fileName in allTempFiles where fileName.contains("_part") {
+                let fileURL = tmpDir.appendingPathComponent(fileName)
+                try? FileManager.default.removeItem(at: fileURL)
+                print("[SegmentedDownloadManager] Removed => \(fileURL.lastPathComponent)")
+            }
+        } catch {
+            print("[SegmentedDownloadManager] [ERROR] reading tempDir => \(error)")
+        }
+
+        print("[SegmentedDownloadManager] All downloads wiped - clean slate!")
+    }
+
+    /// Deletes the final MP4 and any partial chunks for the given videoId.
+    /// Even if metadata is missing, we'll scan the temp directory to remove all files
+    /// with the prefix "<videoId>_part".
     func deleteLocalFile(videoId: String) {
         print("[SegmentedDownloadManager] deleteLocalFile => \(videoId)")
         
         // Cancel tasks so we don't keep writing chunks
         cancelDownload(videoId: videoId)
         
-        // Delete final .mp4
+        // 1) Delete final .mp4
         let finalURL = localFileURL(videoId: videoId)
         if FileManager.default.fileExists(atPath: finalURL.path) {
             try? FileManager.default.removeItem(at: finalURL)
             print("[SegmentedDownloadManager] Deleted .mp4 for \(videoId).")
         }
         
-        // Delete partial segments
+        // 2) Delete partial segments by using metadata if we have it
         if let meta = metadataList[videoId] {
             let totalSegs = meta.numberOfSegments(chunkSize: chunkSize)
             for i in 0..<totalSegs {
                 let segURL = tempSegmentURL(videoId: videoId, index: i)
                 try? FileManager.default.removeItem(at: segURL)
             }
+            print("[SegmentedDownloadManager] Deleted partial segments for \(videoId).")
+        } else {
+            // If there's no metadata (or we don't trust it),
+            // remove any file in temp that starts with "<videoId>_part".
+            let fileManager = FileManager.default
+            let tmpDir = fileManager.temporaryDirectory
+            if let enumerator = fileManager.enumerator(atPath: tmpDir.path) {
+                for case let fileName as String in enumerator {
+                    if fileName.hasPrefix("\(videoId)_part") {
+                        let fileURL = tmpDir.appendingPathComponent(fileName)
+                        try? fileManager.removeItem(at: fileURL)
+                    }
+                }
+            }
+            print("[SegmentedDownloadManager] Deleted partial segments for \(videoId) via fallback.")
         }
     }
+
     
     func isTaskActive(videoId: String) -> Bool {
         return activeDownloads[videoId] != nil

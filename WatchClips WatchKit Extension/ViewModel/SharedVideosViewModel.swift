@@ -16,7 +16,6 @@ class SharedVideosViewModel: ObservableObject {
     
     @AppStorage("loggedInState") private var loggedInStateData = Data()
     
-    
     private let cachedVideosService: CachedVideosService
     
     /// Optional: Store your "activePlan" if you also want to fetch that once
@@ -44,9 +43,10 @@ class SharedVideosViewModel: ObservableObject {
         defer { isLoading = false }
         
         do {
+            let oldVideos = try await cachedVideosService.fetchVideos(forCode: code, useCache: true)
             let fetchedVideos = try await cachedVideosService.fetchVideos(forCode: code, useCache: useCache)
             self.videos = fetchedVideos
-            onDeletedVideo(newVideos: fetchedVideos)
+            onDeletedVideo(newVideos: fetchedVideos, oldVideos: oldVideos)
             self.isOffline = false
             self.isInitialLoad = false
         } catch {
@@ -65,20 +65,17 @@ class SharedVideosViewModel: ObservableObject {
         }
     }
     
-    func onDeletedVideo(newVideos: [Video]) {
-        let oldVideos = self.videos
-        
+    func onDeletedVideo(newVideos: [Video], oldVideos: [Video]) {
         // figure out which videos are "missing" after refresh
         let fetchedIDs = Set(newVideos.map(\.id))
         let missingVideos = oldVideos.filter { !fetchedIDs.contains($0.id) }
         
         // Clean up missing videos from disk if you want
         for missingVid in missingVideos {
-            Task {
-                DownloadsStore.shared.removeById(videoId: missingVid.id)
-                SegmentedDownloadManager.shared.removeDownloadCompletely(videoId: missingVid.id)
-                PlaybackProgressService.shared.clearProgress(videoId: missingVid.id)
-            }
+            print("Deleting video: \(missingVid.title ?? "")")
+            DownloadsStore.shared.removeById(videoId: missingVid.id)
+            SegmentedDownloadManager.shared.removeDownloadCompletely(videoId: missingVid.id)
+            PlaybackProgressService.shared.clearProgress(videoId: missingVid.id)
         }
     }
     
@@ -91,10 +88,12 @@ class SharedVideosViewModel: ObservableObject {
         defer { isLoading = false }
         
         do {
+            let oldVideos = try await cachedVideosService.fetchVideos(forCode: code, useCache: true)
+            
             let fetchedVideos = try await (
                 forceRefresh
                 ? cachedVideosService.refreshVideos(forCode: code)
-                : cachedVideosService.fetchVideos(forCode: code, useCache: true)
+                : oldVideos
             )
             
             self.videos = fetchedVideos
@@ -103,7 +102,7 @@ class SharedVideosViewModel: ObservableObject {
             self.errorMessage = nil
             
 
-            onDeletedVideo(newVideos: fetchedVideos)
+            onDeletedVideo(newVideos: fetchedVideos, oldVideos: oldVideos)
         } catch {
             let cached = cachedVideosService.loadCachedVideos()
             if let cached = cached, !cached.isEmpty {
@@ -134,20 +133,21 @@ class SharedVideosViewModel: ObservableObject {
     func deleteAllVideosAndLogout(
         downloadStore: DownloadsStore
     ) async {
+        print("Deleting all and logging out")
         isLoading = true
         defer { isLoading = false }
         
-        // Clear the entire loggedInState
-        loggedInStateData = Data()
+        UserDefaults.standard.removeObject(forKey: "loggedInState")
         
         // Clear local arrays
         self.videos = []
         
         // Clear all downloads, caches, etc.
         Task.detached {
-            await downloadStore.clearAllDownloads()
             await self.cachedVideosService.clearCache()
-            SegmentedDownloadManager.shared.clearAllActiveDownloads()
+            downloadStore.clearAllDownloads()
+            SegmentedDownloadManager.shared.deleteAllSavedVideos()
+            SegmentedDownloadManager.shared.wipeAllDownloadsCompletely()
             PlaybackProgressService.shared.clearAllProgress()
             SegmentedDownloadManager.shared.deleteAllSavedVideos()
         }

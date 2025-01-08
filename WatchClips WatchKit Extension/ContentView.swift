@@ -27,9 +27,12 @@ struct ContentView: View {
                     VideoListView()
                         .onAppear {
                             Task {
+                                print(decodeLoggedInState(from: loggedInStateData))
+                                
                                 if let code = code {
-                                    await sharedVM.loadVideos(code: code, useCache: !videosSet)
+                                    await sharedVM.loadVideos(code: code, useCache: videosSet)
                                     downloadViewModel.setVideos(newVideos: sharedVM.videos)
+                                    downloadViewModel.resumeInProgressDownloads()
                                     self.videosSet = true
                                 }
                             }
@@ -42,12 +45,6 @@ struct ContentView: View {
                 }
             }
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
-            .onAppear {
-                Task {
-                    downloadViewModel.loadLocalDownloads()
-                    downloadViewModel.resumeInProgressDownloads()
-                }
-            }
             // Full-screen video player if a video is selected
             .fullScreenCover(item: $appState.selectedVideo) { video in
                 VideoPlayerView(

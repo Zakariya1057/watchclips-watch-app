@@ -50,10 +50,6 @@ class DownloadsViewModel: ObservableObject {
         
         // Load previously saved downloads on initialization:
         loadLocalDownloads()
-        
-        // Attempt to resume any downloads that were in-progress
-        // when the app was last running:
-        resumeInProgressDownloads()
     }
     
     // MARK: - Local Persistence
@@ -63,8 +59,6 @@ class DownloadsViewModel: ObservableObject {
         
         self.videos = newVideos.map({ video in
             let downloadVideo = downloadedVideo.first { $0.video.id == video.id }
-            
-            debugPrint(downloadVideo)
             
             return DownloadedVideo(
                 video: video,
@@ -78,9 +72,6 @@ class DownloadsViewModel: ObservableObject {
     func loadLocalDownloads() {
         print("[DownloadsViewModel] Loading locally persisted downloads from store...")
         self.videos = store.loadDownloads()
-//        for video in videos {
-////            print(video)
-//        }
         print("[DownloadsViewModel] Loaded \(videos.count) local downloads from store.")
     }
     

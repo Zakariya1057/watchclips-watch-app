@@ -24,7 +24,7 @@ class CachedVideosService: ObservableObject {
     /// Tries to load videos from cache first. If none in cache or force refresh is needed, fetches from remote.
     func fetchVideos(forCode code: String, useCache: Bool = true) async throws -> [Video] {
         // 1) Try loading from repository (local DB) first
-        if useCache, let cached = loadCachedVideos(), !cached.isEmpty {
+        if useCache, let cached = loadCachedVideos() {
             // Return cached immediately
             let cachedResult = cached
             

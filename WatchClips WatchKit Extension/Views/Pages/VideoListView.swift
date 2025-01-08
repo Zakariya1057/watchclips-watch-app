@@ -20,7 +20,6 @@ struct VideoListView: View {
     @State private var showLogoutConfirmation = false
     @State private var showDownloadList = false
     
-    @State private var isDeletingAll = false
     @StateObject private var networkMonitor = NetworkMonitor()
     @State private var showProcessingAlert = false
     @State private var selectedVideo: Video? // For fullScreenCover
@@ -99,10 +98,6 @@ struct VideoListView: View {
                             await sharedVM.refreshVideos(code: code, forceRefresh: true)
                         }
                     }
-                }
-                
-                if isDeletingAll {
-                    deletingOverlay
                 }
             }
             .toolbar {
@@ -333,9 +328,6 @@ struct VideoListView: View {
     }
     
     private func deleteAllVideosAndLogout() async {
-        isDeletingAll = true
-        defer { isDeletingAll = false }
-        
         await sharedVM.deleteAllVideosAndLogout(downloadStore: downloadStore)
     }
 }
