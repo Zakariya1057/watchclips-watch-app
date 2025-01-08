@@ -2,7 +2,7 @@ import SwiftUI
 import Supabase
 
 struct LoginView: View {
-    @State private var code = "SP45G0"
+    @State private var code = "KFWIWG"
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showHelpAlert = false
@@ -42,8 +42,10 @@ struct LoginView: View {
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("?") {
+                    Button {
                         showHelpAlert = true
+                    } label: {
+                        Text("Help").font(.system(size: 16))
                     }
                 }
             }
@@ -92,6 +94,9 @@ struct LoginView: View {
                 }
                 
                 let newState = LoggedInState(code: codeRecord.id, userId: codeRecord.userId, activePlan: plan)
+                
+                debugPrint(newState)
+                
                 let encoded = try JSONEncoder().encode(newState)
                 loggedInStateData = encoded
 

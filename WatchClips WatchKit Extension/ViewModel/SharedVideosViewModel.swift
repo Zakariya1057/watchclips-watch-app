@@ -18,8 +18,14 @@ class SharedVideosViewModel: ObservableObject {
     
     private let cachedVideosService: CachedVideosService
     
+    private let userSettingsService = UserSettingsService(client: supabase)
+    
     /// Optional: Store your "activePlan" if you also want to fetch that once
     @Published var activePlan: Plan?
+    
+    private var userId: UUID? {
+        return decodeLoggedInState(from: loggedInStateData)?.userId
+    }
     
     /// Pass in your existing services + user code
     init(cachedVideosService: CachedVideosService) {
@@ -28,6 +34,8 @@ class SharedVideosViewModel: ObservableObject {
         Task {
             let code = decodeLoggedInState(from: loggedInStateData)?.code ?? ""
             self.videos = try await cachedVideosService.fetchVideos(forCode: code)
+            
+            await fetchPlan()
         }
     }
     
@@ -62,6 +70,10 @@ class SharedVideosViewModel: ObservableObject {
                 self.errorMessage = error.localizedDescription
             }
             self.isInitialLoad = false
+        }
+        
+        Task {
+            await fetchPlan()
         }
     }
     
@@ -116,11 +128,15 @@ class SharedVideosViewModel: ObservableObject {
             }
             self.isInitialLoad = false
         }
+        
+        Task {
+            await fetchPlan()
+        }
     }
     
     // MARK: - Plan fetching (optional)
     /// Example method to fetch the user plan from your existing service
-    func fetchPlan(userSettingsService: UserSettingsService, userId: UUID) async {
+    func fetchPlan() async {
         do {
             let freshPlan = try await userSettingsService.fetchActivePlan(forUserId: userId)
             self.activePlan = freshPlan
@@ -142,6 +158,8 @@ class SharedVideosViewModel: ObservableObject {
         // Clear local arrays
         self.videos = []
         
+        activePlan = nil
+        
         // Clear all downloads, caches, etc.
         Task.detached {
             await self.cachedVideosService.clearCache()
@@ -149,6 +167,7 @@ class SharedVideosViewModel: ObservableObject {
             SegmentedDownloadManager.shared.deleteAllSavedVideos()
             SegmentedDownloadManager.shared.wipeAllDownloadsCompletely()
             PlaybackProgressService.shared.clearAllProgress()
+            UserSettingsRepository.shared.removeAll()
             SegmentedDownloadManager.shared.deleteAllSavedVideos()
         }
     }

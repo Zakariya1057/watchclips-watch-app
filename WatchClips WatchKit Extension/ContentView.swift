@@ -18,7 +18,9 @@ struct ContentView: View {
     var body: some View {
         
         if loggedInStateData.isEmpty {
-            LoginView()
+            NavigationStack {
+                LoginView()
+            }
         } else {
             // Main content is now split between two tabs
             TabView {
@@ -27,8 +29,6 @@ struct ContentView: View {
                     VideoListView()
                         .onAppear {
                             Task {
-                                print(decodeLoggedInState(from: loggedInStateData))
-                                
                                 if let code = code {
                                     await sharedVM.loadVideos(code: code, useCache: videosSet)
                                     downloadViewModel.setVideos(newVideos: sharedVM.videos)

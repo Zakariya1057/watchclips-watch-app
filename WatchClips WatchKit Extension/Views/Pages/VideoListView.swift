@@ -27,16 +27,7 @@ struct VideoListView: View {
     
     @StateObject private var notificationManager = NotificationManager.shared
     var downloadStore: DownloadsStore = DownloadsStore()
-    
-    private var activePlan: Plan? {
-        // Optionally read from sharedVM.activePlan if you want
-        // or decode from loggedInState
-        if let plan = sharedVM.activePlan {
-            return plan
-        }
-        return decodeLoggedInState(from: loggedInStateData)?.activePlan
-    }
-    
+
     private var code: String {
         decodeLoggedInState(from: loggedInStateData)?.code ?? ""
     }
@@ -85,7 +76,7 @@ struct VideoListView: View {
                     DispatchQueue.main.async {
                         if !pageLoaded {
                             Task {
-                                await fetchPlan()
+                                await sharedVM.fetchPlan()
                             }
                             pageLoaded = true
                         }
@@ -102,7 +93,9 @@ struct VideoListView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    PlanBadgeView(planName: activePlan?.name ?? .free)
+                    if let planName = sharedVM.activePlan?.name {
+                        PlanBadgeView(planName: planName)
+                    }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: {
@@ -178,7 +171,7 @@ struct VideoListView: View {
 
     private var continueWatching: some View {
         Group {
-            if let resume = activePlan?.features?.resumeFeature, resume == true {
+            if let resume = sharedVM.activePlan?.features?.resumeFeature, resume == true {
                 if PlaybackProgressService.shared.getMostRecentlyUpdatedVideoId() != nil {
                     Button {
                         if let latestVideoId = PlaybackProgressService.shared.getMostRecentlyUpdatedVideoId() {
@@ -301,29 +294,6 @@ struct VideoListView: View {
             .padding()
             .background(Color.black.opacity(0.7))
             .cornerRadius(8)
-        }
-    }
-    
-    // MARK: - Methods
-    
-    private func fetchPlan() async {
-        do {
-            if let userId = decodeLoggedInState(from: loggedInStateData)?.userId {
-                let freshPlan = try await mainUserSettingsService.fetchActivePlan(forUserId: userId)
-                
-                // Optionally store it in the shared VM as well
-                sharedVM.activePlan = freshPlan
-                
-                // Or update your loggedInState again
-                if var currentState = decodeLoggedInState(from: loggedInStateData) {
-                    currentState.activePlan = freshPlan
-                    if let newData = encodeLoggedInState(currentState) {
-                        loggedInStateData = newData
-                    }
-                }
-            }
-        } catch {
-            print("[VideoListView] fetchPlan failed:", error)
         }
     }
     

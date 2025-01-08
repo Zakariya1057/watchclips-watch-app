@@ -14,22 +14,26 @@ class UserSettingsService: ObservableObject {
     /// Fetches the user's active plan from the `subscriptions` table, joined with `plans`.
     /// If no active subscription is found, if multiple are found, or if decoding fails,
     /// it falls back to `plan` with `id = 1`.
-    func fetchActivePlan(forUserId userId: UUID) async throws -> Plan? {
-        let userIdString = userId.uuidString
+    func fetchActivePlan(forUserId userId: UUID?) async throws -> Plan? {
+        var subscriptions: [SubscriptionWithPlan] = []
         
-        // 1) Perform the query, returning an array (no `.single()`).
-        let response = try await client
-            .from("subscriptions")
-            .select("plan_id, plan:plans(*)")
-            .eq("user_id", value: userIdString)
-            .eq("status", value: "active")
-            .execute()
+        if let userId = userId {
+            let userIdString = userId.uuidString
+            
+            // 1) Perform the query, returning an array (no `.single()`).
+            let response = try await client
+                .from("subscriptions")
+                .select("plan_id, plan:plans(*)")
+                .eq("user_id", value: userIdString)
+                .eq("status", value: "active")
+                .execute()
+            
+            subscriptions = try JSONDecoder().decode([SubscriptionWithPlan].self, from: response.data)
+        }
         
         // 2) Decode the array of subscriptions with associated plan.
         //    If 0 rows are returned, this will decode to an empty array.
         do {
-            let subscriptions = try JSONDecoder().decode([SubscriptionWithPlan].self, from: response.data)
-            
             // 3) Handle the possible array scenarios:
             switch subscriptions.count {
             case 0:

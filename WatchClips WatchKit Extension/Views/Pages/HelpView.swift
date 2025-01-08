@@ -6,9 +6,10 @@ struct HelpView: View {
         NavigationView {
             List {
                 NavigationLink("How to Change Volume", destination: HowToChangeVolumeView())
-                NavigationLink("How to Scrub Ahead", destination: HowToScrubAheadView())
-                NavigationLink("How to Logout", destination: HowToLogoutView())
-            }.padding(.top, 20)
+                NavigationLink("How to Skip Ahead", destination: HowToSkipAheadView())
+                NavigationLink("How to Log Out", destination: HowToLogoutView())
+            }
+            .padding(.top, 20)
         }
         .navigationTitle("Help")
         .navigationBarTitleDisplayMode(.inline)
@@ -20,14 +21,14 @@ struct HowToChangeVolumeView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                Text("How to Change the Volume")
+                Text("How to Change Volume")
                     .font(.title2)
                     .fontWeight(.semibold)
                 
                 Text("""
-1. Choose your video.
-2. Use the Digital Crown to increase or decrease the volume.
-3. Turn clockwise to raise volume, counterclockwise to lower.
+1. Pick any video to watch.
+2. Turn the Digital Crown to raise or lower the volume.
+3. Clockwise increases volume, counterclockwise decreases it.
 """)
                 .font(.body)
             }
@@ -37,24 +38,24 @@ struct HowToChangeVolumeView: View {
     }
 }
 
-struct HowToScrubAheadView: View {
+struct HowToSkipAheadView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                Text("How to Scrub Ahead")
+                Text("How to Skip Ahead")
                     .font(.title2)
                     .fontWeight(.semibold)
                 
                 Text("""
-1. Choose your video.
-2. The progress bar is at the bottom of the screen.
-3. Tap it, then turn the Digital Crown to move forward or backward.
+1. Pick a video.
+2. Tap the progress bar at the bottom.
+3. Turn the Digital Crown to jump forward or back.
 """)
                 .font(.body)
             }
             .padding()
         }
-        .navigationTitle("Scrub Ahead")
+        .navigationTitle("Skip Ahead")
     }
 }
 
@@ -62,20 +63,20 @@ struct HowToLogoutView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                Text("How to Logout")
+                Text("How to Log Out")
                     .font(.title2)
                     .fontWeight(.semibold)
                 
                 Text("""
-1. From the Home, scroll down.
-2. Tap “Log out” to end your session.
+1. On the Home screen, scroll down.
+2. Tap “Log Out” to end your session.
 3. You’ll return to the login screen.
 """)
                 .font(.body)
             }
             .padding()
         }
-        .navigationTitle("Logout")
+        .navigationTitle("Log Out")
     }
 }
 
