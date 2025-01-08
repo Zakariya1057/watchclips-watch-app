@@ -22,7 +22,7 @@ final class UserSettingsRepository {
             
             let sql = """
             CREATE TABLE IF NOT EXISTS UserSettings (
-                userId TEXT PRIMARY KEY,
+                id INTEGER PRIMARY KEY,
                 json TEXT NOT NULL
             );
             """
@@ -42,18 +42,16 @@ final class UserSettingsRepository {
     }
     
     // MARK: - Load Plan
-    /// Loads the `Plan` from the local DB for a given userId. Returns `nil` if not found or decoding fails.
-    func loadPlan(for userId: String) -> Plan? {
+    /// Loads the single `Plan` from the local DB. Returns `nil` if not found or if decoding fails.
+    func loadPlan() -> Plan? {
         DatabaseHelper.shared.performDatabaseOperation { db in
             guard let db = db else { return nil }
             
-            let sql = "SELECT json FROM UserSettings WHERE userId = ? LIMIT 1;"
+            let sql = "SELECT json FROM UserSettings WHERE id = 1 LIMIT 1;"
             var statement: OpaquePointer?
             var plan: Plan?
             
             if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-                // Bind userId
-                sqlite3_bind_text(statement, 1, (userId as NSString).utf8String, -1, nil)
                 
                 if sqlite3_step(statement) == SQLITE_ROW {
                     if let jsonCString = sqlite3_column_text(statement, 0) {
@@ -64,7 +62,7 @@ final class UserSettingsRepository {
                     }
                 }
             } else {
-                print("[UserSettingsRepository] SELECT statement could not be prepared for userId:", userId)
+                print("[UserSettingsRepository] SELECT statement could not be prepared.")
             }
             
             sqlite3_finalize(statement)
@@ -73,34 +71,32 @@ final class UserSettingsRepository {
     }
     
     // MARK: - Save (Upsert) Plan
-    /// Saves or updates the `Plan` (as JSON) in the local DB for `userId`.
-    func savePlan(_ plan: Plan, for userId: String) {
+    /// Saves or updates the single `Plan` (as JSON) in the local DB.
+    func savePlan(_ plan: Plan) {
         DatabaseHelper.shared.performDatabaseOperation { db in
             guard let db = db else { return }
             
             guard let jsonData = try? JSONEncoder().encode(plan),
                   let jsonString = String(data: jsonData, encoding: .utf8) else {
-                print("[UserSettingsRepository] JSON encoding failed for userId:", userId)
+                print("[UserSettingsRepository] JSON encoding failed.")
                 return
             }
             
             let sql = """
-            INSERT OR REPLACE INTO UserSettings (userId, json)
-            VALUES (?, ?);
+            INSERT OR REPLACE INTO UserSettings (id, json)
+            VALUES (1, ?);
             """
             
             var statement: OpaquePointer?
             if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-                // Bind userId
-                sqlite3_bind_text(statement, 1, (userId as NSString).utf8String, -1, nil)
                 // Bind JSON
-                sqlite3_bind_text(statement, 2, (jsonString as NSString).utf8String, -1, nil)
+                sqlite3_bind_text(statement, 1, (jsonString as NSString).utf8String, -1, nil)
                 
                 if sqlite3_step(statement) != SQLITE_DONE {
-                    print("[UserSettingsRepository] Insert/replace failed for userId:", userId)
+                    print("[UserSettingsRepository] Insert/replace failed.")
                 }
             } else {
-                print("[UserSettingsRepository] Could not prepare statement for userId:", userId)
+                print("[UserSettingsRepository] Could not prepare statement.")
             }
             
             sqlite3_finalize(statement)
@@ -108,18 +104,17 @@ final class UserSettingsRepository {
     }
     
     // MARK: - Remove Plan
-    func removePlan(for userId: String) {
+    func removePlan() {
         DatabaseHelper.shared.performDatabaseOperation { db in
             guard let db = db else { return }
             
-            let sql = "DELETE FROM UserSettings WHERE userId = ?;"
+            let sql = "DELETE FROM UserSettings WHERE id = 1;"
             var statement: OpaquePointer?
             
             if sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK {
-                sqlite3_bind_text(statement, 1, (userId as NSString).utf8String, -1, nil)
                 sqlite3_step(statement)
             } else {
-                print("[UserSettingsRepository] DELETE statement could not be prepared for userId:", userId)
+                print("[UserSettingsRepository] DELETE statement could not be prepared.")
             }
             
             sqlite3_finalize(statement)

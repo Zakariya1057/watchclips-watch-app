@@ -47,7 +47,7 @@ struct VideoRow: View {
                     // 2) Show overlay & either a circular progress or fallback
                     Rectangle()
                         .fill(Color.black.opacity(0.3))
-                        .frame(maxWidth: .infinity, maxHeight: 150)
+                        .frame(maxWidth: .infinity, maxHeight: 100)
 
                     // If we have valid segment data, display progress circle
                     if let processed = video.processedSegments,
@@ -82,7 +82,7 @@ struct VideoRow: View {
                                 .foregroundColor(.white)
                                 .font(.headline)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 150, maxHeight: 150)
+                        .frame(maxWidth: .infinity, minHeight: 100, maxHeight: 100)
                     } else {
                         // Fallback: simple spinner + message
                         VStack(spacing: 0) { // <— Set spacing to whatever smaller value you want
@@ -97,11 +97,11 @@ struct VideoRow: View {
                                 .foregroundColor(.white)
                                 .font(.headline)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 150, maxHeight: 150)
+                        .frame(maxWidth: .infinity, minHeight: 100, maxHeight: 100)
                     }
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 150, maxHeight: 150)
+            .frame(maxWidth: .infinity, minHeight: 100, maxHeight: 100)
             
             // 3) Video info below
             VStack(alignment: .leading, spacing: 6) {
@@ -114,14 +114,16 @@ struct VideoRow: View {
                     Text("💾 Downloaded")
                         .font(.subheadline)
                         .foregroundColor(.green)
-                } else {
-                    Text("☁️ Online")
+                }
+                
+                if let duration = video.duration {
+                    Text("🕒 \(formattedDuration(duration))")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
                 
-                if let duration = video.duration {
-                    Text("⏱ \(formattedDuration(duration))")
+                if let size = video.size, size > 0 {
+                    Text("📄 \(formattedFileSize(size))")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }

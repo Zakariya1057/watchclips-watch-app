@@ -49,15 +49,15 @@ struct VideoListView: View {
                         loadingRow
                     }
                     
+                    if sharedVM.isOffline {
+                        offlineBannerRow
+                    }
+                    
                     if sharedVM.videos.isEmpty && !sharedVM.isLoading {
                         emptyOrErrorStateRows
                     } else {
-                        if sharedVM.isOffline {
-                            offlineBannerRow
-                        }
-                        
                         // MAIN list of videos
-                        ForEach(sharedVM.videos) { video in
+                        ForEach(Array(sharedVM.videos.enumerated()), id: \.element.id) { index, video in
                             VideoRow(
                                 video: video,
                                 isDownloaded: downloadStore.isDownloaded(videoId: video.id)
@@ -143,35 +143,6 @@ struct VideoListView: View {
                 Text("Optimizing video for Apple Watch. Please wait...")
             }
         }
-        // Whenever "appState.selectedVideo" changes from a Video to nil, it means the fullscreen was dismissed
-        .onChange(of: appState.selectedVideo) { newValue in
-            if newValue == nil {
-                // The user just dismissed the video player => refresh last played
-                setLastPlayedVideo()
-            }
-        }
-        
-        // When the user dismisses the "DownloadList" screen (true -> false)
-        .onChange(of: showDownloadList) { newValue in
-            if !newValue {
-                // The user closed the downloads screen => refresh last played
-                setLastPlayedVideo()
-            }
-        }
-        
-        // Also call setLastPlayedVideo each time this view fully appears
-        .onAppear {
-            DispatchQueue.main.async {
-                setLastPlayedVideo()
-            }
-        }
-    }
-    
-    // MARK: - Helper Methods
-    
-    func setLastPlayedVideo() {
-        print("Set Last Played Video called")
-        lastPlayedVideoId = PlaybackProgressService.shared.getMostRecentlyUpdatedVideoId()
     }
     
     private func deleteAllVideosAndLogout() async {
@@ -216,7 +187,7 @@ struct VideoListView: View {
         Group {
             // If the plan includes a "resume" feature, show "Continue" button
             if let resume = sharedVM.activePlan?.features?.resumeFeature, resume == true {
-                if lastPlayedVideoId != nil {
+                if lastPlayedVideoId != nil || PlaybackProgressService.shared.getMostRecentlyUpdatedVideoId() != nil {
                     Button {
                         if let matchingVideo = sharedVM.videos.first(where: { $0.id == lastPlayedVideoId }) {
                             if matchingVideo.status == .postProcessingSuccess {
@@ -289,20 +260,35 @@ struct VideoListView: View {
     }
     
     private var offlineBannerRow: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "wifi.slash")
-                .font(.caption2)
-            Text("Offline - Showing Cached Videos")
-                .font(.caption2)
+        ZStack {
+            // Solid dark-purple background
+            Color(red: 46/255, green: 36/255, blue: 89/255)
+                .cornerRadius(8)
+            
+            VStack(alignment: .center, spacing: 6) {
+                // Top line: Title + Icon
+                
+                HStack(alignment: .center, spacing: 8) {
+                    Text("Offline Mode")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    
+                    Image(systemName: "wifi.slash")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                
+                // Subtitle
+                Text("No internet connection.\nWatch downloaded videos.")
+                    .font(.subheadline)
+                    .foregroundColor(Color.white.opacity(0.9))
+            }
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity)
-        .padding(8)
-        .background(Color.black)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.gray.opacity(0.5), lineWidth: 1)
-        )
-        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+        .listRowInsets(EdgeInsets(top: 10, leading: 0, bottom: 10, trailing: 0))
+        .listRowBackground(Color.clear)
     }
     
     private var logoutButton: some View {

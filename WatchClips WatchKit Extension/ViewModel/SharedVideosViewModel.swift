@@ -18,11 +18,18 @@ class SharedVideosViewModel: ObservableObject {
     
     private let cachedVideosService: CachedVideosService
     
+    // Updated cached user settings service
+    private lazy var cachedUserSettingsService = CachedUserSettingsService(
+        userSettingsService: userSettingsService
+    )
+    
+    // Remote user settings service (for Supabase or similar)
     private let userSettingsService = UserSettingsService(client: supabase)
     
-    /// Optional: Store your "activePlan" if you also want to fetch that once
+    /// Optional: Store your "activePlan"
     @Published var activePlan: Plan?
     
+    /// userId is optional; can be `nil` if logged out or missing
     private var userId: UUID? {
         return decodeLoggedInState(from: loggedInStateData)?.userId
     }
@@ -35,6 +42,7 @@ class SharedVideosViewModel: ObservableObject {
             let code = decodeLoggedInState(from: loggedInStateData)?.code ?? ""
             self.videos = try await cachedVideosService.fetchVideos(forCode: code)
             
+            // Attempt to fetch the plan (will skip remote if userId == nil)
             await fetchPlan()
         }
     }
@@ -73,7 +81,7 @@ class SharedVideosViewModel: ObservableObject {
         }
         
         Task {
-            await fetchPlan()
+            await fetchPlan(useCache: false)
         }
     }
     
@@ -91,11 +99,10 @@ class SharedVideosViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Refresh 
+    // MARK: - Refresh
     func refreshVideos(code: String, forceRefresh: Bool = true) async {
         isLoading = true
         errorMessage = nil
-        
 
         defer { isLoading = false }
         
@@ -113,7 +120,6 @@ class SharedVideosViewModel: ObservableObject {
             self.isInitialLoad = false
             self.errorMessage = nil
             
-
             onDeletedVideo(newVideos: fetchedVideos, oldVideos: oldVideos)
         } catch {
             let cached = cachedVideosService.loadCachedVideos()
@@ -130,16 +136,23 @@ class SharedVideosViewModel: ObservableObject {
         }
         
         Task {
-            await fetchPlan()
+            await fetchPlan(useCache: false)
         }
     }
     
     // MARK: - Plan fetching (optional)
-    /// Example method to fetch the user plan from your existing service
-    func fetchPlan() async {
+    /// Example method to fetch the user plan from your new `CachedUserSettingsService`
+    /// - If `userId` is nil, remote fetch is skipped; local plan is returned if `useCache == true`.
+    func fetchPlan(useCache: Bool = true) async {
         do {
-            let freshPlan = try await userSettingsService.fetchActivePlan(forUserId: userId)
-            self.activePlan = freshPlan
+            let plan = try await cachedUserSettingsService.fetchActivePlan(
+                forUserId: userId,
+                useCache: useCache
+            )
+            
+            print(plan)
+            
+            self.activePlan = plan
         } catch {
             print("[SharedVideosViewModel] fetchPlan failed: \(error)")
         }
@@ -158,7 +171,8 @@ class SharedVideosViewModel: ObservableObject {
         // Clear local arrays
         self.videos = []
         
-        activePlan = nil
+        // Clear local plan
+        self.activePlan = nil
         
         // Clear all downloads, caches, etc.
         Task.detached {
@@ -167,8 +181,9 @@ class SharedVideosViewModel: ObservableObject {
             SegmentedDownloadManager.shared.deleteAllSavedVideos()
             SegmentedDownloadManager.shared.wipeAllDownloadsCompletely()
             PlaybackProgressService.shared.clearAllProgress()
-            UserSettingsRepository.shared.removeAll()
-            SegmentedDownloadManager.shared.deleteAllSavedVideos()
+            
+            // Remove any stored single plan from local repository
+           await self.cachedUserSettingsService.removeFromCache()
         }
     }
 }

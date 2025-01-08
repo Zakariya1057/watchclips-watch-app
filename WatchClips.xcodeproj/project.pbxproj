@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		360202802D2EC72800D6F8E7 /* FormattedFileSize.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3602027F2D2EC72400D6F8E7 /* FormattedFileSize.swift */; };
 		3618B16F2D1CB9C50093ACC1 /* SegmentedDownloadManagerDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3618B16E2D1CB9C50093ACC1 /* SegmentedDownloadManagerDelegate.swift */; };
 		3618B1712D1DF1450093ACC1 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3618B1702D1DF1410093ACC1 /* SessionManager.swift */; };
 		365ACBE62D16BAB00078A6A4 /* DownloadList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365ACBE52D16BAAA0078A6A4 /* DownloadList.swift */; };
@@ -111,6 +112,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		3602027F2D2EC72400D6F8E7 /* FormattedFileSize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormattedFileSize.swift; sourceTree = "<group>"; };
 		3618B16E2D1CB9C50093ACC1 /* SegmentedDownloadManagerDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SegmentedDownloadManagerDelegate.swift; sourceTree = "<group>"; };
 		3618B1702D1DF1410093ACC1 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
 		365ACBE52D16BAAA0078A6A4 /* DownloadList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadList.swift; sourceTree = "<group>"; };
@@ -233,6 +235,7 @@
 		367D83E92D24364400D13EE0 /* Helper */ = {
 			isa = PBXGroup;
 			children = (
+				3602027F2D2EC72400D6F8E7 /* FormattedFileSize.swift */,
 				367D84042D24521600D13EE0 /* EncodeLoggedInState.swift */,
 				367D83F92D24407C00D13EE0 /* DecodeLoggedInState.swift */,
 				367D83EA2D24364700D13EE0 /* AnyDecodable.swift */,
@@ -520,6 +523,7 @@
 				367D83F52D243EBF00D13EE0 /* LoggedInState.swift in Sources */,
 				36918DBD2D1B3FC7008FB158 /* NotificationManager.swift in Sources */,
 				366C6B7A2D21F83500FA15E3 /* MarqueeText.swift in Sources */,
+				360202802D2EC72800D6F8E7 /* FormattedFileSize.swift in Sources */,
 				36D9779D2D14C63500A8C717 /* VideoRow.swift in Sources */,
 				3618B16F2D1CB9C50093ACC1 /* SegmentedDownloadManagerDelegate.swift in Sources */,
 				365F15182D21F311001DE9D7 /* PlaybackProgressRepository.swift in Sources */,

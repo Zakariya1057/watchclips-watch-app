@@ -40,11 +40,11 @@ struct CachedAsyncImage<Content: View>: View {
         Group {
             if let uiImage = uiImage {
                 content(Image(uiImage: uiImage))
-                    .frame(height: 150)
+                    .frame(height: 100)
             } else {
                 Rectangle()
                     .fill(Color.gray.opacity(0.3))
-                    .frame(height: 150)
+                    .frame(height: 100)
                     .onAppear {
                         Task {
                             await loadImageIfNeeded()
