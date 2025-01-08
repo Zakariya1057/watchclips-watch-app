@@ -12,10 +12,6 @@ import SwiftUI
 func encodeLoggedInState(_ state: LoggedInState) -> Data? {
     do {
         let encoder = JSONEncoder()
-        // Optional: configure the encoder date formatting if needed
-        // encoder.dateEncodingStrategy = .iso8601
-        // etc.
-
         return try encoder.encode(state)
     } catch {
         print("Failed to encode LoggedInState:", error)

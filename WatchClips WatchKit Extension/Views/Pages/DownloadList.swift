@@ -3,6 +3,7 @@
 //  WatchClips
 //
 //  Created by Zakariya Hassan on 31/12/2024.
+//  Optimized on 08/01/2025 by ChatGPT
 //
 
 import SwiftUI
@@ -12,6 +13,7 @@ struct DownloadList: View {
     @EnvironmentObject var sharedVM: SharedVideosViewModel
     
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     
     @State private var showProcessingAlert = false
     @State private var selectedVideo: Video?
@@ -22,15 +24,11 @@ struct DownloadList: View {
         self.code = code
     }
     
-    @Environment(\.scenePhase) private var scenePhase
-    
     var body: some View {
         VStack {
-            
-            // 1) Loading / Empty states...
             if sharedVM.videos.isEmpty {
                 
-                // Show progress if loading
+                // 1) Loading / Empty states...
                 if sharedVM.isLoading {
                     HStack {
                         ProgressView("Loading videos...")
@@ -39,14 +37,15 @@ struct DownloadList: View {
                     }
                 }
                 
-                // If there's an error, show it...
                 if let error = sharedVM.errorMessage {
                     Text("Failed or no videos: \(error)")
-                } else {
+                } else if !sharedVM.isLoading {
+                    // Only show "No Videos Found" if not loading
                     VStack(spacing: 16) {
                         Text("No Videos Found")
                             .font(.headline)
                             .foregroundColor(.primary)
+                        
                         Text("Go on WatchClips.app and upload some videos to download here.")
                             .font(.footnote)
                             .foregroundColor(.secondary)
@@ -58,9 +57,8 @@ struct DownloadList: View {
                 
             } else {
                 
-                // 2) Main List of videos...
+                // 2) Main List of videos
                 List {
-                    
                     // Show top-of-list progress if still loading more
                     if sharedVM.isLoading {
                         HStack {
@@ -71,18 +69,13 @@ struct DownloadList: View {
                     }
                     
                     // IMPORTANT: Make sure Video is Identifiable
-                    // If not, do: ForEach(sharedVM.videos, id: \.someUniqueField) { vid in
                     ForEach(sharedVM.videos, id: \.id) { vid in
-                        
                         // Convert to "DownloadedVideo"
-                        let downloadedVideo: DownloadedVideo = downloadsVM.itemFor(video: vid)
+                        let downloadedVideo = downloadsVM.itemFor(video: vid)
                         
-                        DownloadRow(
-                            video: downloadedVideo,
-                            progress: downloadsVM.progress(for: downloadedVideo),
-                            isFullyDownloaded: downloadsVM.isFullyDownloaded(downloadedVideo),
+                        DownloadRowContainer(
+                            downloadedVideo: downloadedVideo,
                             startOrResumeAction: {
-                                // If it's still post-processing, show alert
                                 if downloadedVideo.video.status != .postProcessingSuccess {
                                     showProcessingAlert = true
                                 } else {
@@ -97,16 +90,16 @@ struct DownloadList: View {
                             },
                             onProcessingNeeded: {
                                 showProcessingAlert = true
+                            },
+                            onSelectedForPlayback: {
+                                // Attempt to play if downloaded
+                                if downloadedVideo.downloadStatus == .completed {
+                                    selectedVideo = downloadedVideo.video
+                                } else if downloadedVideo.video.status != .postProcessingSuccess {
+                                    showProcessingAlert = true
+                                }
                             }
                         )
-                        .onTapGesture {
-                            // Attempt to play if downloaded
-                            if downloadedVideo.downloadStatus == .completed {
-                                selectedVideo = downloadedVideo.video
-                            } else if downloadedVideo.video.status != .postProcessingSuccess {
-                                showProcessingAlert = true
-                            }
-                        }
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
                                 downloadsVM.deleteVideo(downloadedVideo)
@@ -116,7 +109,11 @@ struct DownloadList: View {
                         }
                     }
                 }
-                .listStyle(.plain) // Plain list style can reduce some layout quirks
+                .listStyle(.plain)
+                // Disable implicit animations that can cause re-layout or slow performance with large data
+                .transaction { transaction in
+                    transaction.animation = nil
+                }
             }
         }
         .toolbar {
@@ -131,12 +128,9 @@ struct DownloadList: View {
             // Refresh button
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    // Optionally remove animation
-                    // withAnimation(.none) {
                     Task {
                         await sharedVM.refreshVideos(code: code, forceRefresh: true)
                     }
-                    // }
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
@@ -144,15 +138,14 @@ struct DownloadList: View {
         }
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
-                // Only trigger if needed
-                DispatchQueue.main.async {
+                Task {
                     downloadsVM.onAppearCheckForURLChanges()
                 }
             }
         }
         .onAppear {
             // Let the view fully appear, then check for changes
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            Task {
                 downloadsVM.onAppearCheckForURLChanges()
             }
         }
@@ -168,12 +161,43 @@ struct DownloadList: View {
         .alert("Video Not Ready", isPresented: $showProcessingAlert) {
             Button("OK", role: .cancel) {
                 Task {
-                    // force a refresh to see if video has finished processing
+                    // Force a refresh to see if video has finished processing
                     await sharedVM.refreshVideos(code: code, forceRefresh: true)
                 }
             }
         } message: {
             Text("We’re still optimizing this video for Apple Watch. Please try again soon.")
+        }
+    }
+}
+
+fileprivate struct DownloadRowContainer: View {
+    let downloadedVideo: DownloadedVideo
+    
+    let startOrResumeAction: () -> Void
+    let pauseAction: () -> Void
+    let deleteAction: () -> Void
+    let onProcessingNeeded: () -> Void
+    let onSelectedForPlayback: () -> Void
+    
+    @EnvironmentObject var downloadsVM: DownloadsViewModel
+    
+    var body: some View {
+        // “DownloadRow” logic extracted into a container
+        // to reduce repeated layout calculations & re-renders.
+        //
+        // This helps SwiftUI track the row’s identity more efficiently.
+        DownloadRow(
+            video: downloadedVideo,
+            progress: downloadsVM.progress(for: downloadedVideo),
+            isFullyDownloaded: downloadsVM.isFullyDownloaded(downloadedVideo),
+            startOrResumeAction: startOrResumeAction,
+            pauseAction: pauseAction,
+            deleteAction: deleteAction,
+            onProcessingNeeded: onProcessingNeeded
+        )
+        .onTapGesture {
+            onSelectedForPlayback()
         }
     }
 }

@@ -1,3 +1,10 @@
+//
+//  DownloadsViewModel.swift
+//  Example Project
+//
+//  Created by You on [Date].
+//
+
 import SwiftUI
 import WatchKit
 
@@ -15,15 +22,10 @@ protocol SegmentedDownloadManagerDelegate: AnyObject {
     func segmentedDownloadDidFail(videoId: String, error: any Error)
 }
 
-// MARK: - DownloadsViewModel
 @MainActor
 class DownloadsViewModel: ObservableObject {
     // MARK: - Published Properties
-    
-    // If you need a shared VM from environment, do it in the SwiftUI View instead,
-    // because @EnvironmentObject inside a ViewModel can be tricky.
-    // For demonstration, we'll leave this as-is, but typically you'd pass `SharedVideosViewModel`
-    // into the constructor or otherwise manage it externally.
+
     @EnvironmentObject var sharedVM: SharedVideosViewModel
     
     @Published var videos: [DownloadedVideo] = []
@@ -34,8 +36,10 @@ class DownloadsViewModel: ObservableObject {
     private let cachedVideosService: CachedVideosService
     private let store = DownloadsStore()
     
-    /// Our new parallel chunk-based manager (with two-host splitting).
+    /// Parallel chunk-based manager (with two-host splitting).
     private let bgManager = SegmentedDownloadManager.shared
+
+    // MARK: - Init
 
     init(cachedVideosService: CachedVideosService) {
         self.cachedVideosService = cachedVideosService
@@ -57,16 +61,22 @@ class DownloadsViewModel: ObservableObject {
     func setVideos(newVideos: [Video]) {
         let downloadedVideo = store.loadDownloads()
         
-        self.videos = newVideos.map({ video in
-            let downloadVideo = downloadedVideo.first { $0.video.id == video.id }
-            
-            return DownloadedVideo(
-                video: video,
-                downloadStatus: downloadVideo?.downloadStatus ?? .notStarted,
-                downloadedBytes: downloadVideo?.downloadedBytes ?? 0,
-                totalBytes: downloadVideo?.totalBytes ?? 0
-            )
-        })
+        self.videos = newVideos.map { video in
+            // If we already have a matching entry for this video, reuse its data
+            if let existing = downloadedVideo.first(where: { $0.video.id == video.id }) {
+                return existing
+            } else {
+                // Otherwise, create a fresh DownloadedVideo
+                return DownloadedVideo(
+                    video: video,
+                    downloadStatus: .notStarted,
+                    downloadedBytes: 0,
+                    totalBytes: video.size ?? 0,
+                    errorMessage: nil,
+                    lastDownloadURL: nil
+                )
+            }
+        }
     }
     
     func loadLocalDownloads() {
@@ -84,8 +94,8 @@ class DownloadsViewModel: ObservableObject {
     // MARK: - Start / Pause / Delete
 
     func startOrResumeDownload(_ item: DownloadedVideo) {
-        guard item.downloadStatus != .downloading && item.downloadStatus != .completed else {
-            print("[DownloadsViewModel] \(item.id) is already downloading or completed.")
+        guard item.downloadStatus != .completed else {
+            print("[DownloadsViewModel] \(item.id) is already completed.")
             return
         }
         
@@ -96,26 +106,30 @@ class DownloadsViewModel: ObservableObject {
 
         print("[DownloadsViewModel] Initiating startOrResumeDownload for videoId: \(item.id).")
         
-        // Mark it as "downloading" in our local model
-        self.updateStatus(item.id, status: .downloading, errorMessage: nil)
-        
-        // Let the chunk-based manager do the rest;
-        // presumably 'resumeDownload' will do the right thing if partial data exists:
-        self.bgManager.resumeDownload(videoId: item.id, from: remoteURL)
+        Task {
+            // Mark it as "downloading" in our local model
+            self.updateStatus(item.id, status: .downloading, errorMessage: nil)
+            
+            // Let the chunk-based manager do the rest
+            // 'resumeDownload' will handle partial data if it exists
+            self.bgManager.resumeDownload(videoId: item.id, from: remoteURL)
+        }
     }
     
     func pauseDownload(_ item: DownloadedVideo) {
         print("[DownloadsViewModel] Pausing download for \(item.id).")
         
-        self.bgManager.cancelDownload(videoId: item.id)
-        self.updateStatus(item.id, status: .paused, errorMessage: nil)
+        Task {
+            self.bgManager.cancelDownload(videoId: item.id)
+            self.updateStatus(item.id, status: .paused, errorMessage: nil)
+        }
     }
     
-    /// **Deletes both** the final `.mp4` **and** any partial data if the download is in progress.
+    /// Deletes both the final `.mp4` and any partial data if the download is in progress.
     func deleteVideo(_ item: DownloadedVideo) {
         print("[DownloadsViewModel] Deleting local file (and partial data) for \(item.id).")
         
-        // 1) Tell the manager to remove everything (cancel + delete files + metadata).
+        // 1) Tell the manager to remove everything
         bgManager.removeDownloadCompletely(videoId: item.id)
         
         // 2) Reset status in local model
@@ -123,6 +137,7 @@ class DownloadsViewModel: ObservableObject {
         updated.downloadStatus = .notStarted
         updated.downloadedBytes = 0
         updated.errorMessage = nil
+        updated.lastDownloadURL = nil
 
         // 3) Update local array
         if let index = videos.firstIndex(where: { $0.id == item.id }) {
@@ -136,7 +151,8 @@ class DownloadsViewModel: ObservableObject {
         persist()
     }
     
-    // MARK: - FIX: Resume in-progress downloads properly
+    // MARK: - Resume in-progress downloads
+
     func resumeInProgressDownloads() {
         print("[DownloadsViewModel] Attempting to resume in-progress downloads (chunk-based).")
         
@@ -149,31 +165,38 @@ class DownloadsViewModel: ObservableObject {
                     continue
                 }
                 
-                // IMPORTANT: Use resumeDownload instead of startDownload
-                print("[DownloadsViewModel] Resuming chunk-based download for \(item.id) ...")
+                print("[DownloadsViewModel] Resuming chunk-based download for \(item.id)...")
                 bgManager.resumeDownload(videoId: item.id, from: remoteURL)
             }
         }
     }
     
-    // MARK: - NEW: onAppearCheckForURLChanges
+    // MARK: - onAppearCheckForURLChanges
     
-    /// Call this (e.g. from a SwiftUI View's `onAppear`) to ensure each video's URL is up-to-date.
-    /// If the URL has changed from what the manager has on file, it will compare which leftover portion is smaller,
-    /// and pick the smaller path.
+    /// Call this from a SwiftUI View's `onAppear` to ensure each video's URL is up-to-date.
+    /// If the URL has changed, call `startDownload(...)`.
+    /// If it's unchanged, do nothing.
     func onAppearCheckForURLChanges() {
         print("[DownloadsViewModel] onAppear => Checking for any changed URLs in all videos.")
-        for item in videos {
+        
+        for (index, item) in videos.enumerated() {
             // Build the current/expected remote URL
             guard let remoteURL = buildRemoteURL(item.video) else {
                 print("[DownloadsViewModel] [ERROR] Could not build remote URL for \(item.id). Skipping check.")
                 continue
             }
             
-            if item.downloadStatus == .downloading {
-                // Simply call startDownload. If there's no change, the manager does nothing.
-                // If there *is* a change, it triggers the HEAD/compare logic automatically.
-                bgManager.startDownload(videoId: item.id, from: remoteURL)
+            // If the URL changed (or was never set), let's force a (re)startDownload
+            if item.lastDownloadURL != remoteURL, item.downloadedBytes > 0, item.downloadStatus == .downloading {
+                print("[DownloadsViewModel] \(item.id)'s URL changed (or nil). Calling startDownload.")
+                
+                bgManager.resumeDownload(videoId: item.id, from: remoteURL)
+                
+                // Update lastDownloadURL in our local array
+                videos[index].lastDownloadURL = remoteURL
+                persist()
+            } else {
+                print("[DownloadsViewModel] \(item.id)'s URL has not changed. Doing nothing.")
             }
         }
     }
@@ -204,6 +227,7 @@ class DownloadsViewModel: ObservableObject {
         v.downloadedBytes = receivedBytes ?? v.downloadedBytes
         v.totalBytes = totalBytes ?? v.totalBytes
         v.errorMessage = errorMessage
+        
         videos[idx] = v
         
         print("[DownloadsViewModel] Updated status for \(videoId) => \(status). "
@@ -232,7 +256,8 @@ extension DownloadsViewModel: SegmentedDownloadManagerDelegate {
             let total = item.totalBytes
             let current = Int64(Double(total) * progress)
             
-            updateStatus(videoId, status: .downloading,
+            updateStatus(videoId,
+                         status: .downloading,
                          receivedBytes: current,
                          totalBytes: total)
             
@@ -243,13 +268,12 @@ extension DownloadsViewModel: SegmentedDownloadManagerDelegate {
     func segmentedDownloadDidComplete(videoId: String, fileURL: URL) {
         Task { @MainActor in
             print("[DownloadsViewModel] [Segmented] \(videoId) => Completed, file: \(fileURL.lastPathComponent)")
-            updateStatus(videoId, status: .completed, receivedBytes: nil, totalBytes: nil)
+            updateStatus(videoId, status: .completed)
             
             // Optionally trigger a local notification WITH the full `Video` object
             if let item = videos.first(where: { $0.id == videoId }) {
                 let title = item.video.title ?? "(Untitled)"
                 
-                // Pass the entire `Video` to NotificationManager
                 NotificationManager.shared.scheduleLocalNotification(
                     title: title,
                     body: "Your video is ready to watch!",
@@ -275,7 +299,8 @@ extension DownloadsViewModel: DownloadManagerDelegate {
     func downloadDidUpdateProgress(videoId: String, receivedBytes: Int64, totalBytes: Int64) {
         Task { @MainActor in
             print("[DownloadsViewModel] [OldDelegate] \(videoId) progress: \(receivedBytes)/\(totalBytes)")
-            updateStatus(videoId, status: .downloading,
+            updateStatus(videoId,
+                         status: .downloading,
                          receivedBytes: receivedBytes,
                          totalBytes: totalBytes)
         }
@@ -299,27 +324,22 @@ extension DownloadsViewModel: DownloadManagerDelegate {
 
 // MARK: - itemFor(video:)
 extension DownloadsViewModel {
-    /// Return the `DownloadedVideo` item for a given `Video`,
-    /// or create one if it doesn't exist in our local array.
+    /// Return the `DownloadedVideo` item for a given `Video`, or create one if it doesn't exist in our local array.
     func itemFor(video: Video) -> DownloadedVideo {
         if let existing = videos.first(where: { $0.video.id == video.id }) {
-            // Return updated version if needed
-            return DownloadedVideo(
-                video: video,
-                downloadStatus: existing.downloadStatus,
-                downloadedBytes: existing.downloadedBytes,
-                totalBytes: existing.totalBytes,
-                errorMessage: existing.errorMessage
-            )
+            // Return the existing item (keeping status, bytes, etc.)
+            return existing
         } else {
             let newDownload = DownloadedVideo(
                 video: video,
                 downloadStatus: .notStarted,
                 downloadedBytes: 0,
                 totalBytes: video.size ?? 0,
-                errorMessage: nil
+                errorMessage: nil,
+                lastDownloadURL: nil
             )
             
+            // Append it safely on the main thread
             DispatchQueue.main.async {
                 self.videos.append(newDownload)
             }

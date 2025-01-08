@@ -11,6 +11,8 @@ struct VideoPlayerView: View {
     
     @EnvironmentObject private var playbackProgressService: PlaybackProgressService
     
+    @EnvironmentObject var sharedVM: SharedVideosViewModel
+    
     @State private var video: Video?
     
     @State private var isPlaying: Bool = true
@@ -255,7 +257,7 @@ struct VideoPlayerView: View {
                     updatePlaybackStateIfReady()
                     updateNowPlayingInfo()
                     
-                    if activePlan?.name == .pro {
+                    if sharedVM.activePlan?.name == .pro {
                         if let (progress, _) = playbackProgressService.getProgress(videoId: videoId),
                            progress > 0 {
                             seekTo(time: progress, playIfNeeded: isPlaying)

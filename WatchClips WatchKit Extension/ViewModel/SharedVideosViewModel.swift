@@ -34,6 +34,10 @@ class SharedVideosViewModel: ObservableObject {
         return decodeLoggedInState(from: loggedInStateData)?.userId
     }
     
+    private var loggedInState: LoggedInState? {
+        return decodeLoggedInState(from: loggedInStateData)
+    }
+    
     /// Pass in your existing services + user code
     init(cachedVideosService: CachedVideosService) {
         self.cachedVideosService = cachedVideosService
@@ -155,6 +159,13 @@ class SharedVideosViewModel: ObservableObject {
                 forUserId: userId,
                 useCache: useCache
             )
+            
+            var newState = loggedInState
+            newState?.activePlan = plan
+            
+            if let newState = newState, let encodedLoggedInState = encodeLoggedInState(newState) {
+                loggedInStateData = encodedLoggedInState
+            }
             
             self.activePlan = plan
         } catch {

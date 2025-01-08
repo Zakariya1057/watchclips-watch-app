@@ -40,7 +40,7 @@ final class DownloadsRepository {
     }
     
     // MARK: - Load All Downloads
-    /// Returns **all** DownloadedVideo objects from the DB, or an empty array if none.
+    /// Returns **all** `DownloadedVideo` objects from the DB, or an empty array if none.
     func loadAll() -> [DownloadedVideo] {
         return DatabaseHelper.shared.performDatabaseOperation { db in
             guard let db = db else { return [] }
@@ -73,7 +73,7 @@ final class DownloadsRepository {
     // MARK: - Save (Upsert) Downloads
     /// Saves an array of `DownloadedVideo` objects (insert or replace).
     func saveAll(_ downloads: [DownloadedVideo]) {
-        // Similar logic: Up to you if you want to batch them in one transaction or do them individually
+        // Optionally batch them in a transaction; here we do them one by one
         for item in downloads {
             insertOrReplace(item)
         }

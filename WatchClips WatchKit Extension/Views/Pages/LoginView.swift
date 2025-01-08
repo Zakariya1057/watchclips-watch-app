@@ -94,12 +94,7 @@ struct LoginView: View {
                 }
                 
                 let newState = LoggedInState(code: codeRecord.id, userId: codeRecord.userId, activePlan: plan)
-                
-                debugPrint(newState)
-                
-                let encoded = try JSONEncoder().encode(newState)
-                loggedInStateData = encoded
-
+                loggedInStateData = encodeLoggedInState(newState) ?? Data()
             } catch {
                 handleError(error)
             }

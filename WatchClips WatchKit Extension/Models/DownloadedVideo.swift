@@ -23,6 +23,8 @@ struct DownloadedVideo: Identifiable, Codable {
     /// If there's an error, we'll store a message here to display in the UI
     var errorMessage: String?
 
+    var lastDownloadURL: URL?
+    
     // Conform to Identifiable by forwarding the `video.id`
     var id: String { video.id }
 }
