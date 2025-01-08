@@ -57,6 +57,11 @@ class SegmentedDownloadManager: NSObject {
     
     // Extended runtime session (optional)
     private var extendedSession: WKExtendedRuntimeSession?
+
+    // ------------------------------------------------------------------------
+    // NEW: Track the last progress we reported per videoId so progress never goes backwards.
+    // ------------------------------------------------------------------------
+    private var lastReportedProgress: [String: Double] = [:]
     
     // MARK: - Extended Runtime Session
     
@@ -209,7 +214,6 @@ class SegmentedDownloadManager: NSObject {
     }
     
     /// Completely remove (cancel tasks + partial chunks + final file + metadata)
-    /// Completely remove (cancel tasks + partial chunks + final file + metadata)
     func removeDownloadCompletely(videoId: String) {
         print("[SegmentedDownloadManager] Removing \(videoId) completely.")
         
@@ -224,6 +228,9 @@ class SegmentedDownloadManager: NSObject {
         
         // 4) Remove from activeDownloads just in case
         activeDownloads.removeValue(forKey: videoId)
+        
+        // 5) Also remove last reported progress so next time starts fresh
+        lastReportedProgress.removeValue(forKey: videoId)
     }
     
     func deleteAllSavedVideos() {
@@ -484,12 +491,21 @@ class SegmentedDownloadManager: NSObject {
                 // Update actual bytes downloaded by the size of the chunk
                 ctx.completedBytes += Int64(data.count)
                 
-                let fraction = Double(ctx.completedBytes) / Double(ctx.totalSize)
+                // ----------------------------------------------------------------
+                // FIX: Clamp progress so we never move backwards when reporting.
+                // ----------------------------------------------------------------
+                var fraction = Double(ctx.completedBytes) / Double(ctx.totalSize)
+                let lastFrac = self.lastReportedProgress[videoId] ?? 0.0
+                if fraction < lastFrac {
+                    fraction = lastFrac
+                } else {
+                    self.lastReportedProgress[videoId] = fraction
+                }
                 
                 // Notify progress
                 self.segmentedDelegate?.segmentedDownloadDidUpdateProgress(videoId: videoId, progress: fraction)
                 self.oldDelegate?.downloadDidUpdateProgress(videoId: videoId,
-                                                            receivedBytes: ctx.completedBytes,
+                                                            receivedBytes: Int64(Double(fraction) * Double(ctx.totalSize)),
                                                             totalBytes: ctx.totalSize)
                 
                 // Attempt next segment
@@ -537,7 +553,7 @@ class SegmentedDownloadManager: NSObject {
         FileManager.default.createFile(atPath: finalURL.path, contents: nil, attributes: nil)
         
         guard let handle = try? FileHandle(forWritingTo: finalURL) else {
-            let e = NSError(domain: "SegmentedDownload", code: 10,
+            let e = NSError(domain: "SegmentedDownloadManager", code: 10,
                             userInfo: [NSLocalizedDescriptionKey: "Could not open final file handle"])
             reportFailure(videoId, error: e)
             return
@@ -547,7 +563,7 @@ class SegmentedDownloadManager: NSObject {
         for i in 0..<totalSegs {
             let segURL = tempSegmentURL(videoId: videoId, index: i)
             if !FileManager.default.fileExists(atPath: segURL.path) {
-                let e = NSError(domain: "SegmentedDownload", code: 11,
+                let e = NSError(domain: "SegmentedDownloadManager", code: 11,
                                 userInfo: [NSLocalizedDescriptionKey: "Missing segment #\(i)."])
                 handle.closeFile()
                 reportFailure(videoId, error: e)
@@ -571,12 +587,22 @@ class SegmentedDownloadManager: NSObject {
             try? FileManager.default.removeItem(at: segURL)
         }
         
+        // Mark final progress as 100% to ensure delegates see completion at full
+        lastReportedProgress[videoId] = 1.0
+        segmentedDelegate?.segmentedDownloadDidUpdateProgress(videoId: videoId, progress: 1.0)
+        oldDelegate?.downloadDidUpdateProgress(videoId: videoId,
+                                               receivedBytes: ctx.totalSize,
+                                               totalBytes: ctx.totalSize)
+        
         // Remove from active + remove the metadata entry
         activeDownloads.removeValue(forKey: videoId)
         metadataList.removeValue(forKey: videoId)
         
         segmentedDelegate?.segmentedDownloadDidComplete(videoId: videoId, fileURL: finalURL)
         oldDelegate?.downloadDidComplete(videoId: videoId, localFileURL: finalURL)
+        
+        // Clean up last progress so we start fresh if user downloads again
+        lastReportedProgress.removeValue(forKey: videoId)
     }
     
     private func reportFailure(_ videoId: String, error: Error) {
@@ -584,6 +610,9 @@ class SegmentedDownloadManager: NSObject {
         
         // Remove from active
         activeDownloads.removeValue(forKey: videoId)
+        
+        // Also remove last reported progress
+        lastReportedProgress.removeValue(forKey: videoId)
         
         segmentedDelegate?.segmentedDownloadDidFail(videoId: videoId, error: error)
         oldDelegate?.downloadDidFail(videoId: videoId, error: error)
