@@ -1,7 +1,16 @@
 import Foundation
+import Combine
 
-final class PlaybackProgressService {
+final class PlaybackProgressService: ObservableObject {
     static let shared = PlaybackProgressService()
+    
+    /// The ID of the most recently updated video (in-memory)
+    @Published private(set) var lastPlayedVideoId: String?
+    
+    private init() {
+        // Optionally sync from DB on app launch so it's populated if set previously
+        self.lastPlayedVideoId = getMostRecentlyUpdatedVideoId()
+    }
     
     /// Set the progress for a given video, along with the current timestamp
     func setProgress(videoId: String, progress: Double) {
@@ -11,6 +20,8 @@ final class PlaybackProgressService {
             progress: progress,
             updatedAt: timestamp
         )
+        // Update in-memory last played ID
+        self.lastPlayedVideoId = videoId
     }
     
     /// Get the progress and last update time for a given video
@@ -18,12 +29,11 @@ final class PlaybackProgressService {
         guard let result = PlaybackProgressRepository.shared.getProgress(videoId: videoId) else {
             return nil
         }
-        // Convert the raw Double timestamp into a Date
         let date = Date(timeIntervalSince1970: result.updatedAt)
         return (result.progress, date)
     }
     
-    /// Fetch the video ID with the most recently updated progress
+    /// Fetch from DB: video ID with most recently updated progress
     func getMostRecentlyUpdatedVideoId() -> String? {
         PlaybackProgressRepository.shared.getMostRecentlyUpdatedVideoId()
     }
@@ -36,5 +46,6 @@ final class PlaybackProgressService {
     /// Clear progress for all videos
     func clearAllProgress() {
         PlaybackProgressRepository.shared.clearAllProgress()
+        self.lastPlayedVideoId = nil
     }
 }

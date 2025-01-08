@@ -9,6 +9,8 @@ struct VideoPlayerView: View {
     private let code: String
     private let videoId: String
     
+    @EnvironmentObject private var playbackProgressService: PlaybackProgressService
+    
     @State private var video: Video?
     
     @State private var isPlaying: Bool = true
@@ -175,7 +177,7 @@ struct VideoPlayerView: View {
             // Save final position one more time (SQLite-based)
             if let p = player {
                 let currentTime = p.currentTime().seconds
-                PlaybackProgressService.shared.setProgress(videoId: videoId, progress: currentTime)
+                playbackProgressService.setProgress(videoId: videoId, progress: currentTime)
             }
             
             // Clean up
@@ -254,7 +256,7 @@ struct VideoPlayerView: View {
                     updateNowPlayingInfo()
                     
                     if activePlan?.name == .pro {
-                        if let (progress, _) = PlaybackProgressService.shared.getProgress(videoId: videoId),
+                        if let (progress, _) = playbackProgressService.getProgress(videoId: videoId),
                            progress > 0 {
                             seekTo(time: progress, playIfNeeded: isPlaying)
                             player?.play()
@@ -293,7 +295,7 @@ struct VideoPlayerView: View {
             forInterval: CMTimeMake(value: 1, timescale: 1),
             queue: .main
         ) { _ in
-            PlaybackProgressService.shared.setProgress(
+            playbackProgressService.setProgress(
                 videoId: videoId,
                 progress: newPlayer.currentTime().seconds
             )

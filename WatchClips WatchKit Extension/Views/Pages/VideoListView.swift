@@ -16,6 +16,8 @@ struct VideoListView: View {
     // Access the shared videos VM from environment
     @EnvironmentObject private var sharedVM: SharedVideosViewModel
     
+    @EnvironmentObject private var playbackProgressService: PlaybackProgressService
+    
     @State private var showErrorAlert = false
     @State private var showLogoutConfirmation = false
     @State private var showDownloadList = false
@@ -27,6 +29,7 @@ struct VideoListView: View {
     @StateObject private var notificationManager = NotificationManager.shared
     var downloadStore: DownloadsStore = DownloadsStore()
     
+    
     // AppState singleton that holds the current selectedVideo
     @StateObject private var appState = AppState.shared
     
@@ -34,9 +37,6 @@ struct VideoListView: View {
     private var code: String {
         decodeLoggedInState(from: loggedInStateData)?.code ?? ""
     }
-    
-    // Track last-played
-    @State private var lastPlayedVideoId: String?
     
     var body: some View {
         NavigationStack {
@@ -188,7 +188,7 @@ struct VideoListView: View {
         Group {
             // If the plan includes a "resume" feature, show "Continue" button
             if let resume = sharedVM.activePlan?.features?.resumeFeature, resume == true {
-                if lastPlayedVideoId != nil || PlaybackProgressService.shared.getMostRecentlyUpdatedVideoId() != nil {
+                if let lastPlayedVideoId = playbackProgressService.lastPlayedVideoId {
                     Button {
                         if let matchingVideo = sharedVM.videos.first(where: { $0.id == lastPlayedVideoId }) {
                             if matchingVideo.status == .postProcessingSuccess {

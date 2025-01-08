@@ -122,11 +122,11 @@ struct VideoRow: View {
                         .foregroundColor(.secondary)
                 }
                 
-                if let size = video.size, size > 0 {
-                    Text("📄 \(formattedFileSize(size))")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
+//                if let size = video.size, size > 0 {
+//                    Text("📄 \(formattedFileSize(size))")
+//                        .font(.subheadline)
+//                        .foregroundColor(.secondary)
+//                }
                 
                 Text("📅 \(formattedDate(video.createdAt))")
                     .font(.subheadline)

@@ -1,7 +1,4 @@
-//
-// MyWatchApp.swift
-// WatchClips Watch App
-//
+
 import SwiftUI
 
 @main
@@ -24,15 +21,15 @@ struct MyWatchApp: App {
         
         // NEW: Create your user settings service
         let userSettingsService = UserSettingsService(client: supabase)
-
+        
         // 2) Wrap them all in @StateObject
         _mainVideosService       = StateObject(wrappedValue: videosService)
         _mainCachedService       = StateObject(wrappedValue: cachedVideosService)
         _mainDownloadsVM         = StateObject(wrappedValue: downloadsViewModel)
         _mainUserSettingsService = StateObject(wrappedValue: userSettingsService)
-        _sharedVM = StateObject(wrappedValue: sharedViewModel)
+        _sharedVM                = StateObject(wrappedValue: sharedViewModel)
     }
-
+    
     var body: some Scene {
         WindowGroup {
             // Provide them to the environment so child views see the same instances
@@ -42,6 +39,7 @@ struct MyWatchApp: App {
                 .environmentObject(mainDownloadsVM)
                 .environmentObject(mainUserSettingsService)
                 .environmentObject(sharedVM)
+                .environmentObject(PlaybackProgressService.shared)
         }
     }
 }
