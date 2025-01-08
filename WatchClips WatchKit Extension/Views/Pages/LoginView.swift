@@ -2,7 +2,7 @@ import SwiftUI
 import Supabase
 
 struct LoginView: View {
-    @State private var code = "KFWIWG"
+    @State private var code = "ONCBKT"
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showHelpAlert = false

@@ -22,15 +22,21 @@ struct VideoListView: View {
     
     @StateObject private var networkMonitor = NetworkMonitor()
     @State private var showProcessingAlert = false
-    @State private var selectedVideo: Video? // For fullScreenCover
     @State private var pageLoaded = false
     
     @StateObject private var notificationManager = NotificationManager.shared
     var downloadStore: DownloadsStore = DownloadsStore()
-
+    
+    // AppState singleton that holds the current selectedVideo
+    @StateObject private var appState = AppState.shared
+    
+    // Decoded "code" from loggedInState
     private var code: String {
         decodeLoggedInState(from: loggedInStateData)?.code ?? ""
     }
+    
+    // Track last-played
+    @State private var lastPlayedVideoId: String?
     
     var body: some View {
         NavigationStack {
@@ -50,16 +56,18 @@ struct VideoListView: View {
                             offlineBannerRow
                         }
                         
+                        // MAIN list of videos
                         ForEach(sharedVM.videos) { video in
                             VideoRow(
                                 video: video,
                                 isDownloaded: downloadStore.isDownloaded(videoId: video.id)
                             )
-                            // Removed .contentShape(Rectangle()) to avoid gesture conflicts
                             .onTapGesture {
                                 if video.status == .postProcessingSuccess {
-                                    selectedVideo = video
+                                    // Present the selected video
+                                    appState.selectedVideo = video
                                 } else {
+                                    // Show alert that video is still processing
                                     showProcessingAlert = true
                                 }
                             }
@@ -70,10 +78,12 @@ struct VideoListView: View {
                     
                     logoutButton
                 }
-                // Keep using .plain for minimal styling
                 .listStyle(.plain)
+                
+                // Called the FIRST time the view appears (and if navigated away + back)
                 .onAppear {
                     DispatchQueue.main.async {
+                        // Lazy-load plan info only once
                         if !pageLoaded {
                             Task {
                                 await sharedVM.fetchPlan()
@@ -82,8 +92,9 @@ struct VideoListView: View {
                         }
                     }
                 }
+                
+                // If we come back online after being offline, do a refresh
                 .onReceive(networkMonitor.$isConnected) { isConnected in
-                    // If reconnected, refresh if previously offline
                     if isConnected, sharedVM.isOffline, !sharedVM.isInitialLoad {
                         Task {
                             await sharedVM.refreshVideos(code: code, forceRefresh: true)
@@ -91,6 +102,7 @@ struct VideoListView: View {
                     }
                 }
             }
+            // Navigation Bar items
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if let planName = sharedVM.activePlan?.name {
@@ -98,20 +110,22 @@ struct VideoListView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: {
+                    Button {
                         Task {
                             await sharedVM.refreshVideos(code: code, forceRefresh: true)
                         }
-                    }) {
+                    } label: {
                         Image(systemName: "arrow.clockwise")
                     }
                 }
             }
+            // Error alert
             .alert("Error", isPresented: $showErrorAlert) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(sharedVM.errorMessage ?? "An unknown error occurred.")
             }
+            // Logout confirmation
             .alert("Confirm Logout", isPresented: $showLogoutConfirmation) {
                 Button("Cancel", role: .cancel) {}
                 Button("Logout", role: .destructive) {
@@ -122,25 +136,54 @@ struct VideoListView: View {
             } message: {
                 Text("This will also delete all downloaded videos. Are you sure you want to log out?")
             }
+            // Processing alert
             .alert("Processing...", isPresented: $showProcessingAlert) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text("Optimizing video for Apple Watch. Please wait...")
             }
-            .fullScreenCover(item: $selectedVideo) { video in
-                VideoPlayerView(code: video.code, videoId: video.id, filename: video.filename)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .ignoresSafeArea()
+        }
+        // Whenever "appState.selectedVideo" changes from a Video to nil, it means the fullscreen was dismissed
+        .onChange(of: appState.selectedVideo) { newValue in
+            if newValue == nil {
+                // The user just dismissed the video player => refresh last played
+                setLastPlayedVideo()
             }
         }
+        
+        // When the user dismisses the "DownloadList" screen (true -> false)
+        .onChange(of: showDownloadList) { newValue in
+            if !newValue {
+                // The user closed the downloads screen => refresh last played
+                setLastPlayedVideo()
+            }
+        }
+        
+        // Also call setLastPlayedVideo each time this view fully appears
+        .onAppear {
+            DispatchQueue.main.async {
+                setLastPlayedVideo()
+            }
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    func setLastPlayedVideo() {
+        print("Set Last Played Video called")
+        lastPlayedVideoId = PlaybackProgressService.shared.getMostRecentlyUpdatedVideoId()
+    }
+    
+    private func deleteAllVideosAndLogout() async {
+        await sharedVM.deleteAllVideosAndLogout(downloadStore: downloadStore)
     }
     
     // MARK: - Subviews
     
     private var downloadsLink: some View {
-        Button(action: {
+        Button {
             showDownloadList = true
-        }) {
+        } label: {
             HStack(alignment: .center, spacing: 8) {
                 Text("Downloads")
                     .font(.headline)
@@ -157,11 +200,11 @@ struct VideoListView: View {
                 notificationManager.requestAuthorization()
             }
         }
+        // Fullscreen cover for downloads
         .fullScreenCover(isPresented: $showDownloadList) {
             ZStack {
-                // This view is the “background” for the modal
                 Color.black
-                    .opacity(0.5)           // Adjust opacity to your liking
+                    .opacity(0.5)
                     .ignoresSafeArea()
                 
                 DownloadList(code: code)
@@ -171,16 +214,15 @@ struct VideoListView: View {
 
     private var continueWatching: some View {
         Group {
+            // If the plan includes a "resume" feature, show "Continue" button
             if let resume = sharedVM.activePlan?.features?.resumeFeature, resume == true {
-                if PlaybackProgressService.shared.getMostRecentlyUpdatedVideoId() != nil {
+                if lastPlayedVideoId != nil {
                     Button {
-                        if let latestVideoId = PlaybackProgressService.shared.getMostRecentlyUpdatedVideoId() {
-                            if let matchingVideo = sharedVM.videos.first(where: { $0.id == latestVideoId }) {
-                                if matchingVideo.status == .postProcessingSuccess {
-                                    selectedVideo = matchingVideo
-                                } else {
-                                    showProcessingAlert = true
-                                }
+                        if let matchingVideo = sharedVM.videos.first(where: { $0.id == lastPlayedVideoId }) {
+                            if matchingVideo.status == .postProcessingSuccess {
+                                appState.selectedVideo = matchingVideo
+                            } else {
+                                showProcessingAlert = true
                             }
                         }
                     } label: {
@@ -208,7 +250,6 @@ struct VideoListView: View {
                 .padding()
         }
         .padding()
-        // Removed .listRowBackground(Color.black)
     }
     
     @ViewBuilder
@@ -261,43 +302,19 @@ struct VideoListView: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.gray.opacity(0.5), lineWidth: 1)
         )
-        // Removed .listRowBackground(Color.clear)
         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
     }
     
     private var logoutButton: some View {
         Section {
-            Button(action: {
+            Button {
                 showLogoutConfirmation = true
-            }) {
+            } label: {
                 Text("Logout")
                     .font(.headline)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding()
             }
         }
-    }
-    
-    private var deletingOverlay: some View {
-        VStack {
-            Color.black.opacity(0.5)
-                .ignoresSafeArea()
-            
-            VStack(spacing: 16) {
-                ProgressView("Deleting videos...")
-                    .progressViewStyle(CircularProgressViewStyle())
-                    .padding()
-                Text("Please wait while we remove all downloaded content.")
-                    .font(.footnote)
-                    .foregroundColor(.white)
-            }
-            .padding()
-            .background(Color.black.opacity(0.7))
-            .cornerRadius(8)
-        }
-    }
-    
-    private func deleteAllVideosAndLogout() async {
-        await sharedVM.deleteAllVideosAndLogout(downloadStore: downloadStore)
     }
 }
