@@ -1,6 +1,7 @@
 import Foundation
 import WatchKit
 
+
 // MARK: - SegmentedDownloadManager
 class SegmentedDownloadManager: NSObject {
     
@@ -33,7 +34,7 @@ class SegmentedDownloadManager: NSObject {
     }()
     
     // Tuning
-    private let chunkSize: Int64 = 500_000       // e.g. 500 KB
+    private let chunkSize: Int64 = 500_000  // e.g. 500KB
     private let maxConcurrentSegments = 5
     private let maxRetriesPerSegment = 5
     private let retryDelay: TimeInterval = 2.0
@@ -42,7 +43,7 @@ class SegmentedDownloadManager: NSObject {
     weak var segmentedDelegate: SegmentedDownloadManagerDelegate?
     weak var oldDelegate: DownloadManagerDelegate?
     
-    // Keep track of active downloads (videoId -> context)
+    // Track of active downloads (videoId -> context)
     private var activeDownloads: [String: SegmentedDownloadContext] = [:]
     
     // Persisted partial data (videoId -> DownloadMetadata)
@@ -52,15 +53,15 @@ class SegmentedDownloadManager: NSObject {
         }
     }
     
-    // Track HEAD tasks so we can cancel them if needed
+    // Track HEAD tasks to cancel them if needed
     private var headTasks: [String: URLSessionDataTask] = [:]
     
-    // Extended runtime session (optional)
+    // Optional extended runtime session
     private var extendedSession: WKExtendedRuntimeSession?
-
+    
     // ------------------------------------------------------------------------
-    // Track the last progress we reported per videoId so progress never moves backward
-    // for the same URL. But if the URL has changed, we reset this to start fresh.
+    // NEW: Keep track of last progress reported per videoId so progress doesn’t move backwards.
+    // If the URL changes, we reset this so we start fresh.
     // ------------------------------------------------------------------------
     private var lastReportedProgress: [String: Double] = [:]
     
@@ -89,28 +90,28 @@ class SegmentedDownloadManager: NSObject {
     
     func clearAllActiveDownloads() {
         print("[SegmentedDownloadManager] Clearing all active downloads.")
-
+        
         let activeIds = activeDownloads.keys
         for videoId in activeIds {
             removeDownloadCompletely(videoId: videoId)
         }
     }
     
-    /// Starts or resumes a download from scratch or continues partial data.
-    /// If there's already an active download for the same videoId, we cancel it first.
+    /// Start or resume a segmented download.
+    /// If there's already an active download for the same videoId, we cancel it first to avoid concurrency conflicts.
     func startDownload(videoId: String, from newURL: URL) {
         print("[SegmentedDownloadManager] startDownload(\(videoId)) => \(newURL)")
         
-        // 1) Immediately cancel any existing active context for this video
+        // 1) Cancel any existing context
         cancelDownload(videoId: videoId)
         
-        // 2) Check old metadata for URL changes, etc.
+        // 2) Check old metadata
         let existingMeta = metadataList[videoId]
         let oldURLString = existingMeta?.remoteURL
         let urlChanged = (oldURLString != nil) ? (oldURLString != newURL.absoluteString) : false
         
-        // If no existing meta or totalSize=0 => HEAD new URL
         guard let existingMeta = existingMeta, existingMeta.totalSize > 0 else {
+            // No existing meta or totalSize=0 => do HEAD
             doHeadAndStart(videoId: videoId, url: newURL)
             return
         }
@@ -128,9 +129,8 @@ class SegmentedDownloadManager: NSObject {
             return
         }
         
-        // URL changed => Decide if we keep old partial or start new
+        // If the URL changed
         print("[SegmentedDownloadManager] URL changed from \(oldURLString ?? "nil") to \(newURL.absoluteString).")
-        
         let bytesDownloadedSoFar = Int64(existingMeta.finishedSegments.count) * chunkSize
         let oldRemaining = existingMeta.totalSize - bytesDownloadedSoFar
         
@@ -138,36 +138,52 @@ class SegmentedDownloadManager: NSObject {
         headRequest(url: newURL, videoId: videoId) { [weak self] newSizeOrNil in
             guard let self = self else { return }
             guard let newTotalSize = newSizeOrNil, newTotalSize > 0 else {
-                // HEAD failed => revert to old partial
-                print("[SegmentedDownloadManager] HEAD on new URL failed => keep old partial progress.")
+                // HEAD for new URL failed => revert to old partial if possible
+                print("[SegmentedDownloadManager] HEAD on new URL failed => attempt old partial fallback.")
                 guard let oldString = oldURLString, let oldURL = URL(string: oldString) else {
                     print("[SegmentedDownloadManager] Old URL invalid => no fallback => fail.")
                     let e = NSError(domain: "SegmentedDownload", code: -1,
-                                    userInfo: [NSLocalizedDescriptionKey: "Neither old nor new URL valid."])
+                                    userInfo: [NSLocalizedDescriptionKey: "Neither old nor new URL is valid."])
                     self.reportFailure(videoId, error: e)
                     return
                 }
-                self.createContextAndStart(videoId: videoId, remoteURL: oldURL, totalSize: existingMeta.totalSize)
+                
+                // (FIX) If partial data exists => continue from old partial
+                if !existingMeta.finishedSegments.isEmpty {
+                    print("[SegmentedDownloadManager] Fallback => continuing partial data from old URL: \(oldURL).")
+                    self.createContextAndStart(
+                        videoId: videoId,
+                        remoteURL: oldURL,
+                        totalSize: existingMeta.totalSize
+                    )
+                } else {
+                    print("[SegmentedDownloadManager] No partial data => can't fallback => fail.")
+                    let e = NSError(domain: "SegmentedDownload", code: -1,
+                                    userInfo: [NSLocalizedDescriptionKey: "HEAD request for new URL failed, and no partial data to continue."])
+                    self.reportFailure(videoId, error: e)
+                }
                 return
             }
             
-            // 2) HEAD the old URL
+            // 2) HEAD the old URL to see if it’s still valid
             guard let oldString = oldURLString, let oldURL = URL(string: oldString) else {
+                // If old URL is invalid => just switch to new
                 print("[SegmentedDownloadManager] Old URL invalid => using new URL from scratch.")
                 self.switchToNewURLAndRestart(videoId: videoId, newURL: newURL)
                 return
             }
             
             self.headRequest(url: oldURL, videoId: videoId) { oldOk in
-                // If old HEAD fails => start new
                 guard let _ = oldOk else {
+                    // Old HEAD fails => switch to new
                     print("[SegmentedDownloadManager] Old HEAD => not valid => switching to new.")
                     self.switchToNewURLAndRestart(videoId: videoId, newURL: newURL)
                     return
                 }
                 
-                // Both old + new are valid => compare oldRemaining vs. newTotalSize
+                // Both old & new valid => compare oldRemaining vs. newTotal
                 print("[SegmentedDownloadManager] oldRemaining=\(oldRemaining), newTotal=\(newTotalSize).")
+                
                 if oldRemaining < newTotalSize {
                     // Continue old partial
                     self.createContextAndStart(videoId: videoId, remoteURL: oldURL, totalSize: existingMeta.totalSize)
@@ -178,13 +194,14 @@ class SegmentedDownloadManager: NSObject {
             }
         }
     }
-
+    
+    /// Resume => same as startDownload
     func resumeDownload(videoId: String, from url: URL) {
         print("[SegmentedDownloadManager] resumeDownload(\(videoId)) => \(url)")
         startDownload(videoId: videoId, from: url)
     }
     
-    /// Cancel all in-flight tasks (including HEAD)
+    /// Cancel tasks (including HEAD)
     func cancelDownload(videoId: String) {
         print("[SegmentedDownloadManager] Cancel \(videoId)")
         
@@ -194,7 +211,7 @@ class SegmentedDownloadManager: NSObject {
             headTasks.removeValue(forKey: videoId)
         }
         
-        // Cancel active context tasks
+        // Cancel in-flight tasks
         guard let ctx = activeDownloads[videoId] else {
             print("[SegmentedDownloadManager] No active context to cancel for \(videoId).")
             return
@@ -205,23 +222,23 @@ class SegmentedDownloadManager: NSObject {
         activeDownloads.removeValue(forKey: videoId)
     }
     
-    /// Completely remove (cancel tasks + partial chunks + final file + metadata)
+    /// Completely remove everything (partial data, final file, metadata)
     func removeDownloadCompletely(videoId: String) {
         print("[SegmentedDownloadManager] Removing \(videoId) completely.")
         
         // 1) Cancel
         cancelDownload(videoId: videoId)
         
-        // 2) Delete partial + final
+        // 2) Delete partial segments + final
         deleteLocalFile(videoId: videoId)
         
         // 3) Remove from metadata
         metadataList.removeValue(forKey: videoId)
         
-        // 4) Remove from activeDownloads just in case
+        // 4) Remove from active
         activeDownloads.removeValue(forKey: videoId)
         
-        // 5) Remove last progress so next time we start fresh
+        // 5) Remove last reported progress
         lastReportedProgress.removeValue(forKey: videoId)
     }
     
@@ -230,23 +247,23 @@ class SegmentedDownloadManager: NSObject {
             removeDownloadCompletely(videoId: video.id)
         }
     }
-
+    
     func wipeAllDownloadsCompletely() {
         print("[SegmentedDownloadManager] Wiping everything clean!")
-
+        
         // 1) Cancel and remove all active
         clearAllActiveDownloads()
-
-        // 2) Remove entire metadataList
+        
+        // 2) Clear metadata
         metadataList.removeAll()
-
-        // 3) Remove the metadata JSON file
+        
+        // 3) Delete the metadata JSON file
         let metaListFile = metadataListURL()
         if FileManager.default.fileExists(atPath: metaListFile.path) {
             try? FileManager.default.removeItem(at: metaListFile)
             print("[SegmentedDownloadManager] Removed metadataList file => \(metaListFile.lastPathComponent)")
         }
-
+        
         // 4) Remove all .mp4 in caches
         let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
         do {
@@ -259,7 +276,7 @@ class SegmentedDownloadManager: NSObject {
         } catch {
             print("[SegmentedDownloadManager] [ERROR] reading cachesDir => \(error)")
         }
-
+        
         // 5) Remove partial segments from temp
         let tmpDir = FileManager.default.temporaryDirectory
         do {
@@ -272,25 +289,22 @@ class SegmentedDownloadManager: NSObject {
         } catch {
             print("[SegmentedDownloadManager] [ERROR] reading tempDir => \(error)")
         }
-
+        
         print("[SegmentedDownloadManager] All downloads wiped - clean slate!")
     }
-
-    /// Deletes final MP4 & any partial segments for given videoId.
+    
+    /// Deletes final MP4 & partial chunks
     func deleteLocalFile(videoId: String) {
         print("[SegmentedDownloadManager] deleteLocalFile => \(videoId)")
         
-        // Cancel tasks so we don't keep writing chunks
         cancelDownload(videoId: videoId)
         
-        // 1) Delete .mp4
         let finalURL = localFileURL(videoId: videoId)
         if FileManager.default.fileExists(atPath: finalURL.path) {
             try? FileManager.default.removeItem(at: finalURL)
             print("[SegmentedDownloadManager] Deleted .mp4 for \(videoId).")
         }
         
-        // 2) Delete partial segments
         if let meta = metadataList[videoId] {
             let totalSegs = meta.numberOfSegments(chunkSize: chunkSize)
             for i in 0..<totalSegs {
@@ -313,7 +327,7 @@ class SegmentedDownloadManager: NSObject {
             print("[SegmentedDownloadManager] Deleted partial segments for \(videoId) via fallback.")
         }
     }
-
+    
     func isTaskActive(videoId: String) -> Bool {
         return activeDownloads[videoId] != nil
     }
@@ -330,7 +344,6 @@ class SegmentedDownloadManager: NSObject {
     // MARK: - Internal Context Creation
     
     private func createContextAndStart(videoId: String, remoteURL: URL, totalSize: Int64) {
-        // Fresh context
         let ctx = SegmentedDownloadContext(
             videoId: videoId,
             remoteURL: remoteURL,
@@ -346,31 +359,28 @@ class SegmentedDownloadManager: NSObject {
             }
         }
         
-        // Count how many chunks are on disk
+        // Count how many chunk files are on disk
         let totalSegs = ctx.totalSegments
         var diskCount = 0
         for i in 0..<totalSegs {
             let segURL = tempSegmentURL(videoId: videoId, index: i)
             if FileManager.default.fileExists(atPath: segURL.path) {
                 diskCount += 1
-                // If we see a segment file on disk not in metadata, add it
+                // If we see a partial file on disk not in metadata, add it
                 if !(metadataList[videoId]?.finishedSegments.contains(i) ?? false) {
                     metadataList[videoId]?.finishedSegments.append(i)
                 }
-                // Also increment context’s completedBytes by the actual file size
+                // Bump completedBytes by the chunk’s actual size
                 if let fileAttrs = try? FileManager.default.attributesOfItem(atPath: segURL.path),
                    let fileSize = fileAttrs[.size] as? Int64 {
                     ctx.completedBytes += fileSize
                 }
             }
         }
-        
         print("[SegmentedDownloadManager] \(videoId) => \(diskCount) chunk files found on disk.")
         
-        // Mark it active
+        // Mark active
         activeDownloads[videoId] = ctx
-        
-        // Kick off concurrency
         scheduleChunkDownloads(ctx)
     }
     
@@ -381,12 +391,10 @@ class SegmentedDownloadManager: NSObject {
         let totalSegs = ctx.totalSegments
         let doneSet = Set(meta.finishedSegments)
         
-        // Build pending
         ctx.pendingSegments = (0..<totalSegs).filter { !doneSet.contains($0) }
         
         print("[SegmentedDownloadManager] \(videoId) => totalSegs=\(totalSegs), pending=\(ctx.pendingSegments.count)")
         
-        // Start concurrency
         for _ in 0..<maxConcurrentSegments {
             startNextSegmentIfAvailable(ctx)
         }
@@ -394,7 +402,6 @@ class SegmentedDownloadManager: NSObject {
     
     private func startNextSegmentIfAvailable(_ ctx: SegmentedDownloadContext) {
         let videoId = ctx.videoId
-        
         guard activeDownloads[videoId] != nil else { return }
         
         // If done
@@ -408,7 +415,6 @@ class SegmentedDownloadManager: NSObject {
         let segIndex = ctx.pendingSegments.removeFirst()
         ctx.inFlightSegments.insert(segIndex)
         
-        // Decide domain
         let isEven = (segIndex % 2 == 0)
         let chosenDomain = isEven ? domainA : domainB
         
@@ -435,7 +441,6 @@ class SegmentedDownloadManager: NSObject {
         let task = urlSession.dataTask(with: req) { [weak self] data, response, error in
             guard let self = self else { return }
             
-            // If canceled mid-way
             guard self.activeDownloads[videoId] != nil else {
                 print("[SegmentedDownloadManager] \(videoId) seg #\(segIndex) => canceled mid-request.")
                 return
@@ -451,9 +456,7 @@ class SegmentedDownloadManager: NSObject {
             
             guard let httpRes = response as? HTTPURLResponse,
                   (httpRes.statusCode == 206 || httpRes.statusCode == 200),
-                  let data = data,
-                  !data.isEmpty
-            else {
+                  let data = data, !data.isEmpty else {
                 let e = NSError(domain: "SegmentedDownload", code: 2,
                                 userInfo: [NSLocalizedDescriptionKey: "Invalid response or empty data."])
                 self.handleChunkError(ctx, segIndex: segIndex, error: e)
@@ -461,11 +464,11 @@ class SegmentedDownloadManager: NSObject {
             }
             
             do {
-                // Write chunk to temp
+                // Save chunk
                 let segURL = self.tempSegmentURL(videoId: videoId, index: segIndex)
                 try data.write(to: segURL, options: .atomic)
                 
-                // Update metadata
+                // Mark finished
                 if var meta = self.metadataList[videoId] {
                     if !meta.finishedSegments.contains(segIndex) {
                         meta.finishedSegments.append(segIndex)
@@ -473,12 +476,9 @@ class SegmentedDownloadManager: NSObject {
                     }
                 }
                 
-                // Update context's downloaded bytes
                 ctx.completedBytes += Int64(data.count)
                 
-                // ----------------------------------------------------------------
-                // Clamp progress so it never moves backwards for the same URL
-                // ----------------------------------------------------------------
+                // Clamp progress
                 var fraction = Double(ctx.completedBytes) / Double(ctx.totalSize)
                 let lastFrac = self.lastReportedProgress[videoId] ?? 0.0
                 if fraction < lastFrac {
@@ -487,7 +487,7 @@ class SegmentedDownloadManager: NSObject {
                     self.lastReportedProgress[videoId] = fraction
                 }
                 
-                // Notify progress
+                // Notify
                 self.segmentedDelegate?.segmentedDownloadDidUpdateProgress(videoId: videoId, progress: fraction)
                 self.oldDelegate?.downloadDidUpdateProgress(
                     videoId: videoId,
@@ -495,7 +495,7 @@ class SegmentedDownloadManager: NSObject {
                     totalBytes: ctx.totalSize
                 )
                 
-                // Attempt next segment
+                // Next segment
                 self.startNextSegmentIfAvailable(ctx)
                 
             } catch {
@@ -514,7 +514,7 @@ class SegmentedDownloadManager: NSObject {
         let attempts = ctx.segmentRetryCount[segIndex] ?? 0
         if attempts < ctx.maxRetries {
             ctx.segmentRetryCount[segIndex] = attempts + 1
-            print("[SegmentedDownloadManager] [ERROR] #\(segIndex) => \(error). Retrying(\(attempts+1)).")
+            print("[SegmentedDownloadManager] [ERROR] #\(segIndex) => \(error). Retrying(\(attempts + 1)).")
             
             DispatchQueue.main.asyncAfter(deadline: .now() + retryDelay) {
                 guard self.activeDownloads[ctx.videoId] != nil else { return }
@@ -570,7 +570,7 @@ class SegmentedDownloadManager: NSObject {
             try? FileManager.default.removeItem(at: segURL)
         }
         
-        // Mark final progress = 100%
+        // Mark 100%
         lastReportedProgress[videoId] = 1.0
         segmentedDelegate?.segmentedDownloadDidUpdateProgress(videoId: videoId, progress: 1.0)
         oldDelegate?.downloadDidUpdateProgress(
@@ -579,14 +579,14 @@ class SegmentedDownloadManager: NSObject {
             totalBytes: ctx.totalSize
         )
         
-        // Remove from active + remove metadata
+        // Remove from active + metadata
         activeDownloads.removeValue(forKey: videoId)
         metadataList.removeValue(forKey: videoId)
         
         segmentedDelegate?.segmentedDownloadDidComplete(videoId: videoId, fileURL: finalURL)
         oldDelegate?.downloadDidComplete(videoId: videoId, localFileURL: finalURL)
         
-        // Clean up last progress so next time we start fresh
+        // Clean up
         lastReportedProgress.removeValue(forKey: videoId)
     }
     
@@ -596,7 +596,7 @@ class SegmentedDownloadManager: NSObject {
         // Remove from active
         activeDownloads.removeValue(forKey: videoId)
         
-        // Also remove last reported progress
+        // Also remove last progress
         lastReportedProgress.removeValue(forKey: videoId)
         
         segmentedDelegate?.segmentedDownloadDidFail(videoId: videoId, error: error)
@@ -606,7 +606,7 @@ class SegmentedDownloadManager: NSObject {
     // MARK: - Network Helpers
     
     private func headRequest(url: URL, videoId: String, completion: @escaping (Int64?) -> Void) {
-        // Cancel existing HEAD for this videoId
+        // Cancel any existing HEAD for this videoId
         if let existingHead = headTasks[videoId] {
             existingHead.cancel()
             headTasks.removeValue(forKey: videoId)
@@ -642,11 +642,10 @@ class SegmentedDownloadManager: NSObject {
         task.resume()
     }
     
-    /// Clear old partial data, reset metadata, then HEAD new URL.
+    /// Clear old partial data, reset metadata, then do HEAD on the new URL
     private func switchToNewURLAndRestart(videoId: String, newURL: URL) {
         deleteLocalFile(videoId: videoId)
         
-        // Clear old metadata => start fresh
         metadataList[videoId] = DownloadMetadata(
             videoId: videoId,
             remoteURL: newURL.absoluteString,
@@ -654,37 +653,55 @@ class SegmentedDownloadManager: NSObject {
             finishedSegments: []
         )
         
-        // (ADDED) Reset lastReportedProgress so progress begins at 0 for the new URL
-        lastReportedProgress.removeValue(forKey: videoId)  // (ADDED)
+        lastReportedProgress.removeValue(forKey: videoId)
         
         doHeadAndStart(videoId: videoId, url: newURL)
     }
     
-    /// Common helper: does a HEAD and creates the context if possible.
+    /// HEAD + create context, or fallback to partial if HEAD fails but partial data exists
     private func doHeadAndStart(videoId: String, url: URL) {
+        let existingMeta = metadataList[videoId]
+        let partialExists = !(existingMeta?.finishedSegments.isEmpty ?? true)
+        
         headRequest(url: url, videoId: videoId) { [weak self] totalSize in
             guard let self = self else { return }
             
-            // If the user canceled in the meantime
+            // If user canceled mid-HEAD
             if self.activeDownloads[videoId] != nil {
                 print("[SegmentedDownloadManager] doHeadAndStart => Found an active context, not proceeding.")
                 return
             }
             
             guard let totalSize = totalSize, totalSize > 0 else {
-                let e = NSError(
-                    domain: "SegmentedDownload",
-                    code: 1,
-                    userInfo: [
-                        NSLocalizedDescriptionKey:
-                            "The file was not found on the server. Please contact support at support@watchclips.app if this issue persists."
-                    ]
-                )
-                self.reportFailure(videoId, error: e)
+                // (FIX) If HEAD fails but partial exists => continue
+                if partialExists, let meta = existingMeta {
+                    print("[SegmentedDownloadManager] doHeadAndStart => HEAD failed but partial data found => continuing partial.")
+                    DispatchQueue.main.async {
+                        let oldURLString = meta.remoteURL
+                        if let oldURL = URL(string: oldURLString) {
+                            self.createContextAndStart(videoId: videoId, remoteURL: oldURL, totalSize: meta.totalSize)
+                        } else {
+                            // no fallback => fail
+                            let e = NSError(domain: "SegmentedDownload", code: 2,
+                                            userInfo: [NSLocalizedDescriptionKey: "HEAD fail + fallback parse error."])
+                            self.reportFailure(videoId, error: e)
+                        }
+                    }
+                } else {
+                    // no partial => fail
+                    let e = NSError(
+                        domain: "SegmentedDownload",
+                        code: 1,
+                        userInfo: [
+                            NSLocalizedDescriptionKey: "HEAD request failed & no partial data available."
+                        ]
+                    )
+                    self.reportFailure(videoId, error: e)
+                }
                 return
             }
             
-            // Update metadata
+            // HEAD success => continue
             self.metadataList[videoId] = DownloadMetadata(
                 videoId: videoId,
                 remoteURL: url.absoluteString,
@@ -692,10 +709,8 @@ class SegmentedDownloadManager: NSObject {
                 finishedSegments: []
             )
             
-            // (ADDED) Also make sure we reset progress to 0
-            self.lastReportedProgress.removeValue(forKey: videoId)  // (ADDED)
+            self.lastReportedProgress.removeValue(forKey: videoId)
             
-            // Create context & start
             self.createContextAndStart(videoId: videoId, remoteURL: url, totalSize: totalSize)
         }
     }
@@ -802,7 +817,10 @@ private class SegmentedDownloadContext {
     
     var pendingSegments: [Int] = []
     var inFlightSegments: Set<Int> = []
+    
+    /// Mapping segmentIndex => URLSessionDataTask
     var tasksBySegmentIndex: [Int: URLSessionDataTask] = [:]
+    
     var completedBytes: Int64 = 0
     var segmentRetryCount: [Int: Int] = [:]
     

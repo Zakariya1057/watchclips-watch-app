@@ -24,6 +24,7 @@ struct HelpView: View {
             .padding(.top, 20)
         }
         .navigationTitle("Help")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

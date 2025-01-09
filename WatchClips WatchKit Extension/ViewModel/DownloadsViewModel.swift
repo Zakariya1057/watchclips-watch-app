@@ -147,6 +147,9 @@ class DownloadsViewModel: ObservableObject {
                 )
             }
         }
+        if let code = newVideos.first?.code {
+            startProcessingCheckerIfNeeded(code: code)
+        }
     }
     
     func loadLocalDownloads() {
@@ -221,10 +224,6 @@ class DownloadsViewModel: ObservableObject {
                 print("[DownloadsViewModel] Resuming chunk-based download for \(item.id)...")
                 bgManager.resumeDownload(videoId: item.id, from: remoteURL)
             }
-        }
-        
-        if let code = code {
-            startProcessingCheckerIfNeeded(code: code)
         }
     }
     
@@ -383,6 +382,8 @@ class DownloadsViewModel: ObservableObject {
         ) { success in
             print("[DownloadsViewModel] notifyVideoNowOptimized => Notification scheduled? \(success)")
         }
+        
+        stopProcessingChecker()
     }
 
 }
