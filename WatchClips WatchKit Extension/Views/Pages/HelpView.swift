@@ -8,6 +8,8 @@ struct HelpView: View {
                 // New explanation about Optimizing / Optimized
                 NavigationLink("What does 'Optimizing' / 'Optimized' mean?", destination: WhatIsOptimizingView())
                 
+                NavigationLink("Why did my download restart?", destination: WhyDidMyDownloadRestartView()) // <-- NEW SECTION
+                
                 NavigationLink("How to Change Volume", destination: HowToChangeVolumeView())
                 NavigationLink("How to Skip Ahead", destination: HowToSkipAheadView())
                 
@@ -18,18 +20,44 @@ struct HelpView: View {
                 // How to Keep App from Exiting
                 NavigationLink("How to Keep App from Exiting",
                                destination: HowToKeepAppOpenView())
-                
-                // Always make "How to Log Out" last
-                NavigationLink("How to Log Out", destination: HowToLogoutView())
             }
             .padding(.top, 20)
         }
         .navigationTitle("Help")
+    }
+}
+
+// MARK: - Why Did My Download Restart?
+struct WhyDidMyDownloadRestartView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                
+                Text("Why Did My Download Restart?")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                
+                Text("""
+Occasionally, while downloading, we detect that the file can be further optimized for your Apple Watch. When this happens, we switch to the newer, optimized version. While this may cause your download to restart from the beginning, it often results in:
+
+- Smaller final file size
+- Faster overall download
+- Less storage used on your Apple Watch
+
+We always measure how much you've already downloaded versus how much time is saved by switching. In most cases, starting the download over with the optimized file gets you watching sooner. Rest assured, it’s all about reducing wait times and saving space on your Watch.
+""")
+                .font(.body)
+                .padding(.top, 8)
+            }
+            .padding()
+        }
+        .navigationTitle("Download Restart")
         .navigationBarTitleDisplayMode(.inline)
     }
 }
 
-// MARK: - What does 'Optimizing' / 'Optimized' mean?
+// MARK: - Remaining Views...
+
 struct WhatIsOptimizingView: View {
     var body: some View {
         ScrollView {
@@ -105,7 +133,7 @@ struct HowToConnectHeadphonesView: View {
                 Text("""
 1. Press the side button on your Apple Watch to open Control Center.
    - Scroll down if needed.
-   - Tap the AirPlay icon (sometimes shown as an AirPlay or AirDrop icon) to see available audio outputs.
+   - Tap the AirPlay icon to see available audio outputs.
 """)
                 .font(.body)
                 
@@ -177,27 +205,6 @@ struct HowToSkipAheadView: View {
             .padding()
         }
         .navigationTitle("Skip Ahead")
-    }
-}
-
-struct HowToLogoutView: View {
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("How to Log Out")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                
-                Text("""
-1. On the Home screen, scroll down.
-2. Tap “Log Out” to end your session.
-3. You’ll return to the login screen.
-""")
-                .font(.body)
-            }
-            .padding()
-        }
-        .navigationTitle("Log Out")
     }
 }
 

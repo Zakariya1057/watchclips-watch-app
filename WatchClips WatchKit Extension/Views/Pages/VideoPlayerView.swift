@@ -260,12 +260,12 @@ struct VideoPlayerView: View {
                            progress > 0 {
                             seekTo(time: progress, playIfNeeded: isPlaying)
                             updatePlaybackStateIfReady()
-                            isLoading = false
                         }
                     } else {
                         updatePlaybackStateIfReady()
-                        isLoading = false
                     }
+                    
+                    isLoading = false
                 case .failed:
                     handlePlaybackError(
                         item.error,

@@ -20,6 +20,11 @@
 		365F15182D21F311001DE9D7 /* PlaybackProgressRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365F15172D21F311001DE9D7 /* PlaybackProgressRepository.swift */; };
 		365F151A2D21F384001DE9D7 /* CachedVideosRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365F15192D21F384001DE9D7 /* CachedVideosRepository.swift */; };
 		365F151C2D21F49D001DE9D7 /* DownloadsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 365F151B2D21F49D001DE9D7 /* DownloadsRepository.swift */; };
+		366B0C6E2D30461D009F518B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366B0C6D2D30461D009F518B /* SettingsView.swift */; };
+		366B0C702D304F28009F518B /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366B0C6F2D304F28009F518B /* AppSettings.swift */; };
+		366B0C722D304F31009F518B /* SettingsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366B0C712D304F31009F518B /* SettingsRepository.swift */; };
+		366B0C742D304F3A009F518B /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366B0C732D304F3A009F518B /* SettingsStore.swift */; };
+		366B0C762D305538009F518B /* NotificationAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366B0C752D305538009F518B /* NotificationAction.swift */; };
 		366C6B7A2D21F83500FA15E3 /* MarqueeText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366C6B792D21F83500FA15E3 /* MarqueeText.swift */; };
 		366C6B7C2D21F8FD00FA15E3 /* MarqueeTextLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366C6B7B2D21F8FD00FA15E3 /* MarqueeTextLoop.swift */; };
 		367907862D1F2A9500AE02EA /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367907852D1F2A9500AE02EA /* AppState.swift */; };
@@ -51,7 +56,6 @@
 		36D9779F2D14C63500A8C717 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D977932D14C63500A8C717 /* ContentView.swift */; };
 		36D977A22D14C63500A8C717 /* Video.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D9777B2D14C63500A8C717 /* Video.swift */; };
 		36D977A32D14C63500A8C717 /* VideoService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D977842D14C63500A8C717 /* VideoService.swift */; };
-		36D977A42D14C63500A8C717 /* VideoDownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D9777F2D14C63500A8C717 /* VideoDownloadManager.swift */; };
 		36D977A52D14C63500A8C717 /* VideoListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D9778B2D14C63500A8C717 /* VideoListView.swift */; };
 		36D977A62D14C63500A8C717 /* VideoPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D9778D2D14C63500A8C717 /* VideoPlayerView.swift */; };
 		36D977A72D14C63500A8C717 /* CachedAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D977882D14C63500A8C717 /* CachedAsyncImage.swift */; };
@@ -125,6 +129,11 @@
 		365F15172D21F311001DE9D7 /* PlaybackProgressRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackProgressRepository.swift; sourceTree = "<group>"; };
 		365F15192D21F384001DE9D7 /* CachedVideosRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedVideosRepository.swift; sourceTree = "<group>"; };
 		365F151B2D21F49D001DE9D7 /* DownloadsRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsRepository.swift; sourceTree = "<group>"; };
+		366B0C6D2D30461D009F518B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		366B0C6F2D304F28009F518B /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		366B0C712D304F31009F518B /* SettingsRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRepository.swift; sourceTree = "<group>"; };
+		366B0C732D304F3A009F518B /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
+		366B0C752D305538009F518B /* NotificationAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationAction.swift; sourceTree = "<group>"; };
 		366C6B792D21F83500FA15E3 /* MarqueeText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarqueeText.swift; sourceTree = "<group>"; };
 		366C6B7B2D21F8FD00FA15E3 /* MarqueeTextLoop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarqueeTextLoop.swift; sourceTree = "<group>"; };
 		367907852D1F2A9500AE02EA /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
@@ -149,7 +158,6 @@
 		36C643532D2D3FC6009777B6 /* SharedVideosViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedVideosViewModel.swift; sourceTree = "<group>"; };
 		36C643552D2D8B3C009777B6 /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
 		36D9777B2D14C63500A8C717 /* Video.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Video.swift; sourceTree = "<group>"; };
-		36D9777F2D14C63500A8C717 /* VideoDownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoDownloadManager.swift; sourceTree = "<group>"; };
 		36D977812D14C63500A8C717 /* CachedVideosService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedVideosService.swift; sourceTree = "<group>"; };
 		36D977822D14C63500A8C717 /* Supabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Supabase.swift; sourceTree = "<group>"; };
 		36D977842D14C63500A8C717 /* VideoService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoService.swift; sourceTree = "<group>"; };
@@ -195,6 +203,7 @@
 				36D9778B2D14C63500A8C717 /* VideoListView.swift */,
 				36C643552D2D8B3C009777B6 /* HelpView.swift */,
 				365ACBE52D16BAAA0078A6A4 /* DownloadList.swift */,
+				366B0C6D2D30461D009F518B /* SettingsView.swift */,
 				36D9778D2D14C63500A8C717 /* VideoPlayerView.swift */,
 			);
 			path = Pages;
@@ -216,6 +225,7 @@
 		365F15162D21F30B001DE9D7 /* Repository */ = {
 			isa = PBXGroup;
 			children = (
+				366B0C712D304F31009F518B /* SettingsRepository.swift */,
 				365F15172D21F311001DE9D7 /* PlaybackProgressRepository.swift */,
 				365F15192D21F384001DE9D7 /* CachedVideosRepository.swift */,
 				365F151B2D21F49D001DE9D7 /* DownloadsRepository.swift */,
@@ -263,6 +273,7 @@
 		36D9777C2D14C63500A8C717 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				366B0C752D305538009F518B /* NotificationAction.swift */,
 				367D83F42D243EBF00D13EE0 /* LoggedInState.swift */,
 				367D83EC2D24365C00D13EE0 /* Subscription.swift */,
 				367D83E72D24362F00D13EE0 /* Plan.swift */,
@@ -279,18 +290,19 @@
 		36D977852D14C63500A8C717 /* Service */ = {
 			isa = PBXGroup;
 			children = (
+				366B0C6F2D304F28009F518B /* AppSettings.swift */,
 				365F15162D21F30B001DE9D7 /* Repository */,
 				365F15142D21F0A7001DE9D7 /* DatabaseHelper.swift */,
 				36918DBC2D1B3FC7008FB158 /* NotificationManager.swift */,
 				367907852D1F2A9500AE02EA /* AppState.swift */,
 				36D9778A2D14C63500A8C717 /* NetworkMonitor.swift */,
 				367D83FF2D244BFD00D13EE0 /* Cache */,
-				36D9777F2D14C63500A8C717 /* VideoDownloadManager.swift */,
 				367D83F02D2439C900D13EE0 /* CodeService.swift */,
 				365ACBF22D16CA6B0078A6A4 /* DownloadsStore.swift */,
 				367D83E52D2435E500D13EE0 /* UserSettingsService.swift */,
 				3618B16E2D1CB9C50093ACC1 /* SegmentedDownloadManagerDelegate.swift */,
 				3618B1702D1DF1410093ACC1 /* SessionManager.swift */,
+				366B0C732D304F3A009F518B /* SettingsStore.swift */,
 				365E78752D1C8A9100A6DE13 /* PlaybackProgressService.swift */,
 				36D977822D14C63500A8C717 /* Supabase.swift */,
 				36D977842D14C63500A8C717 /* VideoService.swift */,
@@ -522,7 +534,9 @@
 				3618B1712D1DF1450093ACC1 /* SessionManager.swift in Sources */,
 				367D83F52D243EBF00D13EE0 /* LoggedInState.swift in Sources */,
 				36918DBD2D1B3FC7008FB158 /* NotificationManager.swift in Sources */,
+				366B0C6E2D30461D009F518B /* SettingsView.swift in Sources */,
 				366C6B7A2D21F83500FA15E3 /* MarqueeText.swift in Sources */,
+				366B0C742D304F3A009F518B /* SettingsStore.swift in Sources */,
 				360202802D2EC72800D6F8E7 /* FormattedFileSize.swift in Sources */,
 				36D9779D2D14C63500A8C717 /* VideoRow.swift in Sources */,
 				3618B16F2D1CB9C50093ACC1 /* SegmentedDownloadManagerDelegate.swift in Sources */,
@@ -535,6 +549,7 @@
 				365ACC002D1738510078A6A4 /* DownloadRow.swift in Sources */,
 				367D84032D244D7C00D13EE0 /* PlanFeatures.swift in Sources */,
 				36D977A22D14C63500A8C717 /* Video.swift in Sources */,
+				366B0C762D305538009F518B /* NotificationAction.swift in Sources */,
 				36D977A32D14C63500A8C717 /* VideoService.swift in Sources */,
 				367D83EB2D24364700D13EE0 /* AnyDecodable.swift in Sources */,
 				365ACBF12D16C1200078A6A4 /* DownloadsViewModel.swift in Sources */,
@@ -544,7 +559,6 @@
 				367D83E62D2435E500D13EE0 /* UserSettingsService.swift in Sources */,
 				367907862D1F2A9500AE02EA /* AppState.swift in Sources */,
 				367D83F32D2439D300D13EE0 /* Code.swift in Sources */,
-				36D977A42D14C63500A8C717 /* VideoDownloadManager.swift in Sources */,
 				36C643542D2D3FC6009777B6 /* SharedVideosViewModel.swift in Sources */,
 				365ACBE62D16BAB00078A6A4 /* DownloadList.swift in Sources */,
 				36D977A52D14C63500A8C717 /* VideoListView.swift in Sources */,
@@ -552,10 +566,12 @@
 				365F15152D21F0A7001DE9D7 /* DatabaseHelper.swift in Sources */,
 				367D84012D244C0100D13EE0 /* CachedUserSettingsService.swift in Sources */,
 				36D977A72D14C63500A8C717 /* CachedAsyncImage.swift in Sources */,
+				366B0C722D304F31009F518B /* SettingsRepository.swift in Sources */,
 				367D83E82D24362F00D13EE0 /* Plan.swift in Sources */,
 				36D977A92D14C63500A8C717 /* LoginView.swift in Sources */,
 				365ACBF32D16CA6B0078A6A4 /* DownloadsStore.swift in Sources */,
 				366C6B7C2D21F8FD00FA15E3 /* MarqueeTextLoop.swift in Sources */,
+				366B0C702D304F28009F518B /* AppSettings.swift in Sources */,
 				367D84052D24521B00D13EE0 /* EncodeLoggedInState.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

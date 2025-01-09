@@ -12,4 +12,5 @@ class AppState: ObservableObject {
     static let shared = AppState()
     
     @Published var selectedVideo: Video?
+    @Published var showDownloadList = false
 }

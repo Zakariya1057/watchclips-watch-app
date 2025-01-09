@@ -8,7 +8,6 @@ struct VideoListView: View {
     @EnvironmentObject private var playbackProgressService: PlaybackProgressService
     
     @State private var showErrorAlert = false
-    @State private var showLogoutConfirmation = false
     @State private var showDownloadList = false
     
     @StateObject private var networkMonitor = NetworkMonitor()
@@ -42,17 +41,12 @@ struct VideoListView: View {
                         offlineBannerRow
                     }
                     
-                    // Show loading row only if:
-                    // 1) no videos are available yet AND
-                    // 2) loading has exceeded the 1.5-second threshold
                     if sharedVM.videos.isEmpty {
                         if showLoadingIndicator {
                             loadingRow
                         }
                         emptyOrErrorStateRows
                     } else {
-                        // If we do have videos but loading is still ongoing (maybe for updates),
-                        // also show the loading row after the delay
                         if showLoadingIndicator {
                             loadingRow
                         }
@@ -76,8 +70,6 @@ struct VideoListView: View {
                             .listRowInsets(EdgeInsets(top: 10, leading: 10, bottom: 10, trailing: 10))
                         }
                     }
-                    
-                    logoutButton
                 }
                 .listStyle(.plain)
                 
@@ -122,7 +114,6 @@ struct VideoListView: View {
                     showLoadingIndicator = false
                 }
             }
-            
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if let planName = sharedVM.activePlan?.name {
@@ -145,17 +136,6 @@ struct VideoListView: View {
             } message: {
                 Text(sharedVM.errorMessage ?? "An unknown error occurred.")
             }
-            // Logout confirmation
-            .alert("Confirm Logout", isPresented: $showLogoutConfirmation) {
-                Button("Cancel", role: .cancel) {}
-                Button("Logout", role: .destructive) {
-                    Task {
-                        await deleteAllVideosAndLogout()
-                    }
-                }
-            } message: {
-                Text("This will also delete all downloaded videos. Are you sure you want to log out?")
-            }
             // Processing alert
             .alert("Processing...", isPresented: $showProcessingAlert) {
                 Button("OK", role: .cancel) {}
@@ -163,10 +143,6 @@ struct VideoListView: View {
                 Text("Optimizing video for Apple Watch. Please wait...")
             }
         }
-    }
-    
-    private func deleteAllVideosAndLogout() async {
-        await sharedVM.deleteAllVideosAndLogout(downloadStore: downloadStore)
     }
     
     // MARK: - Subviews
@@ -317,18 +293,5 @@ struct VideoListView: View {
         }
         .listRowInsets(EdgeInsets(top: 10, leading: 0, bottom: 10, trailing: 0))
         .listRowBackground(Color.clear)
-    }
-    
-    private var logoutButton: some View {
-        Section {
-            Button {
-                showLogoutConfirmation = true
-            } label: {
-                Text("Logout")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding()
-            }
-        }
     }
 }

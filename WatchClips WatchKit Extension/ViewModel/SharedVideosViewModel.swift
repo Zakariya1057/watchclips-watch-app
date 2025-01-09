@@ -40,7 +40,7 @@ class SharedVideosViewModel: ObservableObject {
         return decodeLoggedInState(from: loggedInStateData)?.code
     }
     
-    private var loggedInState: LoggedInState? {
+    var loggedInState: LoggedInState? {
         return decodeLoggedInState(from: loggedInStateData)
     }
     
@@ -202,9 +202,7 @@ class SharedVideosViewModel: ObservableObject {
     }
     
     // MARK: - Delete all (for logout)
-    func deleteAllVideosAndLogout(
-        downloadStore: DownloadsStore
-    ) async {
+    func deleteAllVideosAndLogout() async {
         print("Deleting all and logging out")
         isLoading = true
         defer { isLoading = false }
@@ -221,7 +219,7 @@ class SharedVideosViewModel: ObservableObject {
         // Clear all downloads, caches, etc.
         Task.detached {
             await self.cachedVideosService.clearCache()
-            downloadStore.clearAllDownloads()
+            DownloadsStore.shared.clearAllDownloads()
             SegmentedDownloadManager.shared.deleteAllSavedVideos()
             SegmentedDownloadManager.shared.wipeAllDownloadsCompletely()
             PlaybackProgressService.shared.clearAllProgress()

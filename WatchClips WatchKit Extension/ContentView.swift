@@ -18,13 +18,15 @@ struct ContentView: View {
     var body: some View {
         
         if loggedInStateData.isEmpty {
+            // Not logged in => show LoginView
             NavigationStack {
                 LoginView()
             }
         } else {
-            // Main content is now split between two tabs
+            // Main content split across three tabs
             TabView {
-                // VideoList tab
+                
+                // 1) Videos Tab
                 NavigationStack {
                     VideoListView()
                         .onAppear {
@@ -40,11 +42,17 @@ struct ContentView: View {
                         }
                 }
                 
-                // Help tab
+                // 2) Help Tab
                 NavigationStack {
                     HelpView()
                 }
+                
+                // 3) Settings Tab
+                NavigationStack {
+                    SettingsView()
+                }
             }
+            // Optional: You can switch between .automatic, .never, or remove this
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
             // Full-screen video player if a video is selected
             .fullScreenCover(item: $appState.selectedVideo) { video in
@@ -56,6 +64,5 @@ struct ContentView: View {
                 .ignoresSafeArea()
             }
         }
-
     }
 }

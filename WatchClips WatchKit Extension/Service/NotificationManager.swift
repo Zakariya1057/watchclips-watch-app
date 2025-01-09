@@ -25,13 +25,17 @@ class NotificationManager: NSObject, ObservableObject {
     }
     
     // MARK: - Schedule Notification (Immediate)
-    /// Pass in a full `Video`. We'll encode its data into `userInfo` so we can retrieve
-    /// it fully in `didReceive` (when the user taps the notification).
-    func scheduleLocalNotification(title: String,
-                                   body: String,
-                                   video: Video,
-                                   completion: @escaping (Bool) -> Void) {
-        
+    /// Pass in:
+    /// - `action`: determines what happens when user taps the notification.
+    /// - A full `Video`.
+    /// We'll store these in `userInfo` so we can retrieve them in `didReceive`.
+    func scheduleLocalNotification(
+        title: String,
+        body: String,
+        video: Video,
+        action: NotificationAction,   // <-- New parameter
+        completion: @escaping (Bool) -> Void
+    ) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
@@ -42,14 +46,14 @@ class NotificationManager: NSObject, ObservableObject {
         let createdAtString = dateFormatter.string(from: video.createdAt)
         let updatedAtString = dateFormatter.string(from: video.updatedAt)
         
-        // Encode all the fields into userInfo
-        // (userInfo must contain only property-list types: string, number, etc.)
+        // Prepare userInfo with all the fields
         var userInfo: [String: Any] = [
             "id": video.id,
             "code": video.code,
             "filename": video.filename,
             "createdAt": createdAtString,
-            "updatedAt": updatedAtString
+            "updatedAt": updatedAtString,
+            "actionToPerform": action.rawValue  // <-- Store the action here
         ]
         
         // Optionals
@@ -74,6 +78,8 @@ class NotificationManager: NSObject, ObservableObject {
         if let expectedSegments = video.expectedSegments {
             userInfo["expected_segments"] = expectedSegments
         }
+
+        userInfo["is_optimizing"] = video.isOptimizing
         
         content.userInfo = userInfo
         
@@ -107,20 +113,28 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
                                 withCompletionHandler completionHandler:
                                 @escaping (UNNotificationPresentationOptions) -> Void) {
         
-        // By default, watchOS does not show banners if app is foreground.
-        // We force it to show a banner and play a sound:
+        // By default, watchOS might not show banners if foreground.
+        // Force it to show a banner and play a sound:
         completionHandler([.banner, .sound])
     }
     
-    /// Called when user taps a delivered notification (while app is in background or inactive).
-    /// We read userInfo, parse a `Video`, and store it in `AppState.shared.selectedVideo`.
+    /// Called when user taps a delivered notification.
+    /// We parse the `userInfo` to see which action to take.
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         
         let userInfo = response.notification.request.content.userInfo
         
-        // We'll parse the userInfo dictionary back into a Video struct
+        // First, parse out the action
+        guard let actionRaw = userInfo["actionToPerform"] as? String,
+              let action = NotificationAction(rawValue: actionRaw) else {
+            // If no action is specified, default behavior
+            completionHandler()
+            return
+        }
+        
+        // Parse the rest of the userInfo to rebuild a Video (optional, if you need it)
         guard
             let id = userInfo["id"] as? String,
             let code = userInfo["code"] as? String,
@@ -128,7 +142,6 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
             let createdAtString = userInfo["createdAt"] as? String,
             let updatedAtString = userInfo["updatedAt"] as? String
         else {
-            // If we can’t retrieve required fields, just return
             completionHandler()
             return
         }
@@ -137,6 +150,9 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
         let image = userInfo["image"] as? String
         let size = userInfo["size"] as? Int64
         let duration = userInfo["duration"] as? Int
+        let processedSegments = userInfo["processed_segments"] as? Int
+        let expectedSegments = userInfo["expected_segments"] as? Int
+        let isOptimizing = userInfo["is_optimizing"] as? Bool
         
         // Convert `status` from raw string to enum
         var status: VideoStatus?
@@ -144,18 +160,12 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
             status = VideoStatus(rawValue: statusRaw)
         }
         
-        let processedSegments = userInfo["processed_segments"] as? Int
-        let expectedSegments = userInfo["expected_segments"] as? Int
-        
-        let isOptimizing = userInfo["is_optimizing"] as? Bool
-        
         // Decode dates from ISO8601 strings
         let dateFormatter = ISO8601DateFormatter()
-        
         let createdAt = dateFormatter.date(from: createdAtString) ?? Date()
         let updatedAt = dateFormatter.date(from: updatedAtString) ?? Date()
         
-        // Construct the full `Video`
+        // Construct a `Video` if needed
         let tappedVideo = Video(
             id: id,
             code: code,
@@ -172,9 +182,21 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
             isOptimizing: isOptimizing ?? false
         )
         
-        // Update our app’s state on the main thread
+        // Decide what to do based on the action
         DispatchQueue.main.async {
-            AppState.shared.selectedVideo = tappedVideo
+            switch action {
+            case .openDownloads:
+                // For instance, you might set a flag to show the Downloads screen
+                // or navigate to a "DownloadsList" view in your app state.
+                AppState.shared.showDownloadList = true
+                // Clear any previously selected video
+                AppState.shared.selectedVideo = nil
+                
+            case .openVideoPlayer:
+                // Set the selectedVideo to open it
+                AppState.shared.selectedVideo = tappedVideo
+                AppState.shared.showDownloadList = false
+            }
         }
         
         completionHandler()

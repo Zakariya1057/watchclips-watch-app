@@ -6,16 +6,17 @@ struct DownloadRow: View {
     let video: DownloadedVideo
     let progress: Double   // 0..1
     let isFullyDownloaded: Bool
-    
-    /// Whether we're currently offline
     let isOffline: Bool
 
     let startOrResumeAction: () -> Void
     let pauseAction: () -> Void
     let deleteAction: () -> Void
     let onProcessingNeeded: () -> Void
+    
+    /// Called when the user taps the row (completed => playback).
+    let onSelectedForPlayback: () -> Void
 
-    // MARK: - Private Computed Properties
+    // MARK: - Private Computed
     private let downloadedBytes: Int64
     private let totalBytes: Int64
     private let fileSize: Int64
@@ -35,7 +36,8 @@ struct DownloadRow: View {
         startOrResumeAction: @escaping () -> Void,
         pauseAction: @escaping () -> Void,
         deleteAction: @escaping () -> Void,
-        onProcessingNeeded: @escaping () -> Void
+        onProcessingNeeded: @escaping () -> Void,
+        onSelectedForPlayback: @escaping () -> Void
     ) {
         self.video = video
         self.progress = progress
@@ -45,6 +47,7 @@ struct DownloadRow: View {
         self.pauseAction = pauseAction
         self.deleteAction = deleteAction
         self.onProcessingNeeded = onProcessingNeeded
+        self.onSelectedForPlayback = onSelectedForPlayback
 
         // Pre-calc repeated values
         downloadedBytes = video.downloadedBytes
@@ -57,9 +60,8 @@ struct DownloadRow: View {
     }
 
     var body: some View {
-        Button {
-            handleRowTap()
-        } label: {
+        // Replaces Button with a plain container + onTapGesture
+        ZStack {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
                     // Header with title + status
@@ -73,11 +75,10 @@ struct DownloadRow: View {
                     if video.downloadStatus == .downloading {
                         ProgressView(value: progress)
                             .frame(maxWidth: .infinity)
-                            // turn off default animation
                             .animation(nil, value: progress)
                     }
 
-                    // Show partial or total file-size info
+                    // Show partial or total file-size
                     if video.downloadStatus != .completed {
                         if downloadedBytes > 0 && totalBytes > 0 &&
                             (video.downloadStatus == .downloading || video.downloadStatus == .paused) {
@@ -91,7 +92,7 @@ struct DownloadRow: View {
                         }
                     }
 
-                    // Error or Optimizing/Optimized
+                    // Show error or optimizing status
                     if video.downloadStatus == .error {
                         Text("Error: \(isOffline ? "No internet connection." : (video.errorMessage ?? "Unknown"))")
                             .font(.subheadline)
@@ -125,14 +126,14 @@ struct DownloadRow: View {
                         .transition(.opacity)
                     }
 
-                    // If server status is not yet post-processing success, disable real buttons
+                    // If video not done processing, disable real actions
                     if video.video.status != .postProcessingSuccess {
                         Button("Processing...") { }
                             .disabled(true)
                             .buttonStyle(.borderedProminent)
                             .frame(maxWidth: .infinity)
                     } else {
-                        // Actions: Download, Pause, etc.
+                        // Download/Pause/Resume actions
                         DownloadRowActions(
                             video: video,
                             isFullyDownloaded: isFullyDownloaded,
@@ -147,24 +148,27 @@ struct DownloadRow: View {
                 }
             }
             .padding(.vertical, 8)
-            // Subtle dark background + small corner radius
             .background(rowBackground)
             .cornerRadius(8)
         }
-        // Use a plain button style for a simpler dark UI
-        .buttonStyle(PlainButtonStyle())
-        // Disable any implicit row animations (e.g., when progress changes)
+        // Make the whole ZStack tappable, but not triggered by swipes
+        .contentShape(Rectangle())
+        .onTapGesture {
+            handleRowTap()
+        }
+        // Turn off default animations
         .transaction { transaction in
             transaction.animation = nil
         }
     }
 
-    // MARK: - Private Handlers
+    // MARK: - Private
+    
     private func handleRowTap() {
+        // If fully downloaded => playback; else show "Video Not Ready"
         switch video.downloadStatus {
         case .completed:
-            // Possibly present the player
-            break
+            onSelectedForPlayback()
         default:
             if video.video.status != .postProcessingSuccess {
                 onProcessingNeeded()
@@ -236,15 +240,12 @@ fileprivate struct DownloadRowHeader: View {
     }
 }
 
-/// Subview for the action buttons: Download, Pause, etc.
+/// Subview for the download/pause/resume buttons
 fileprivate struct DownloadRowActions: View {
     let video: DownloadedVideo
     let isFullyDownloaded: Bool
     let progress: Double
-    
     let downloadedBytes: Int64
-    
-    /// Offline state
     let isOffline: Bool
 
     let startOrResumeAction: () -> Void
@@ -255,7 +256,7 @@ fileprivate struct DownloadRowActions: View {
         Group {
             switch video.downloadStatus {
             case .completed:
-                // Nothing to show if fully downloaded
+                // No action buttons needed
                 EmptyView()
 
             case .downloading:
@@ -280,7 +281,6 @@ fileprivate struct DownloadRowActions: View {
             }
         }
         .padding(.vertical, 5)
-        // Disable default animations so the row won't jump around
         .animation(nil, value: video.downloadStatus)
         .animation(nil, value: progress)
     }

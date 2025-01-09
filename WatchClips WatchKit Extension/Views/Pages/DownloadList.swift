@@ -1,11 +1,3 @@
-//
-//  DownloadList.swift
-//  WatchClips
-//
-//  Created by Zakariya Hassan on 31/12/2024.
-//  Optimized on 08/01/2025 by ChatGPT
-//
-
 import SwiftUI
 
 struct DownloadList: View {
@@ -21,9 +13,12 @@ struct DownloadList: View {
     // Decouple "loading too long" indicator from `sharedVM.isLoading`
     @State private var showLoadingIndicator = false
     @State private var loadingDelayTask: Task<Void, Never>? = nil
-    
+
     let code: String
     
+    // Removed the local isMonitoringProcessing/checkProcessingTask/state & helper methods
+    // to move them into the DownloadsViewModel
+
     init(code: String) {
         self.code = code
     }
@@ -31,16 +26,13 @@ struct DownloadList: View {
     var body: some View {
         VStack {
             if sharedVM.videos.isEmpty {
-                // Only show the spinner if we've been loading for more than 1.5 seconds
                 if showLoadingIndicator {
                     loadingView
                 }
                 
-                // If there's an error, show it
                 if let error = sharedVM.errorMessage {
                     Text("Failed or no videos: \(error)")
                 }
-                // If no error and not loading, show "No Videos Found"
                 else if !sharedVM.isLoading && !showLoadingIndicator {
                     VStack(spacing: 16) {
                         Text("No Videos Found")
@@ -56,17 +48,13 @@ struct DownloadList: View {
                     .padding(.vertical, 20)
                 }
             } else {
-                // If we do have videos, but loading is still ongoing,
-                // we can still show the delayed indicator for partial updates if desired
                 if showLoadingIndicator {
                     loadingView
                 }
                 
                 // Main list of videos
                 List {
-                    // IMPORTANT: Make sure Video is Identifiable
                     ForEach(sharedVM.videos, id: \.id) { vid in
-                        // Convert to "DownloadedVideo"
                         let downloadedVideo = downloadsVM.itemFor(video: vid)
                         
                         DownloadRowContainer(
@@ -89,6 +77,7 @@ struct DownloadList: View {
                                 showProcessingAlert = true
                             },
                             onSelectedForPlayback: {
+                                print("Play Video")
                                 // Attempt to play if downloaded
                                 if downloadedVideo.downloadStatus == .completed {
                                     selectedVideo = downloadedVideo.video
@@ -137,19 +126,14 @@ struct DownloadList: View {
         // Monitor .isLoading changes in sharedVM
         .onChange(of: sharedVM.isLoading) { newValue in
             if newValue {
-                // Cancel any existing task so we don’t stack multiple
                 loadingDelayTask?.cancel()
-                
-                // Schedule a new delay for 1.5 seconds
                 loadingDelayTask = Task {
                     try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5s
-                    // If still loading, show indicator
                     if !Task.isCancelled && sharedVM.isLoading {
                         showLoadingIndicator = true
                     }
                 }
             } else {
-                // Loading ended => cancel delay + hide indicator
                 loadingDelayTask?.cancel()
                 showLoadingIndicator = false
             }
@@ -163,7 +147,7 @@ struct DownloadList: View {
                 }
             }
         }
-        // On appear, do an initial refresh
+        // On appear => do initial refresh and start the new processing checker from VM
         .onAppear {
             Task {
                 await sharedVM.refreshVideos(code: code, forceRefresh: true)
@@ -183,7 +167,6 @@ struct DownloadList: View {
         .alert("Video Not Ready", isPresented: $showProcessingAlert) {
             Button("OK", role: .cancel) {
                 Task {
-                    // Force a refresh to see if video has finished processing
                     await sharedVM.refreshVideos(code: code, forceRefresh: true)
                 }
             }
@@ -203,7 +186,6 @@ struct DownloadList: View {
                 Text("Loading videos...")
                     .font(.headline)
                 
-                // Additional reassurance message
                 Text("It's taking a bit of time.\nPlease be patient.")
                     .font(.footnote)
                     .foregroundColor(.secondary)
@@ -215,7 +197,7 @@ struct DownloadList: View {
     }
 }
 
-/// Container that reuses the layout logic for a single row.
+/// Container for each row, unchanged
 fileprivate struct DownloadRowContainer: View {
     let downloadedVideo: DownloadedVideo
     
@@ -229,8 +211,6 @@ fileprivate struct DownloadRowContainer: View {
     @EnvironmentObject var downloadsVM: DownloadsViewModel
     
     var body: some View {
-        // “DownloadRow” logic extracted into a container
-        // to reduce repeated layout calculations & re-renders.
         DownloadRow(
             video: downloadedVideo,
             progress: downloadsVM.progress(for: downloadedVideo),
@@ -239,10 +219,8 @@ fileprivate struct DownloadRowContainer: View {
             startOrResumeAction: startOrResumeAction,
             pauseAction: pauseAction,
             deleteAction: deleteAction,
-            onProcessingNeeded: onProcessingNeeded
+            onProcessingNeeded: onProcessingNeeded,
+            onSelectedForPlayback: onSelectedForPlayback
         )
-        .onTapGesture {
-            onSelectedForPlayback()
-        }
     }
 }
