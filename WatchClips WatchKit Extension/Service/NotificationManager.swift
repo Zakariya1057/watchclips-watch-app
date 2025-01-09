@@ -147,6 +147,8 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
         let processedSegments = userInfo["processed_segments"] as? Int
         let expectedSegments = userInfo["expected_segments"] as? Int
         
+        let isOptimizing = userInfo["is_optimizing"] as? Bool
+        
         // Decode dates from ISO8601 strings
         let dateFormatter = ISO8601DateFormatter()
         
@@ -166,7 +168,8 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
             updatedAt: updatedAt,
             status: status,
             processedSegments: processedSegments,
-            expectedSegments: expectedSegments
+            expectedSegments: expectedSegments,
+            isOptimizing: isOptimizing ?? false
         )
         
         // Update our app’s state on the main thread

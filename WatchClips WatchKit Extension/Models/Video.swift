@@ -30,6 +30,9 @@ struct Video: Identifiable, Codable, Equatable {
     // NEW FIELDS:
     let processedSegments: Int?
     let expectedSegments: Int?
+    
+    /// **NEW**: Whether the file is being optimized (maps to `is_optimizing` in DB).
+    let isOptimizing: Bool
 
     enum CodingKeys: String, CodingKey {
         case id, code, title, image, filename, size, duration, status
@@ -37,5 +40,8 @@ struct Video: Identifiable, Codable, Equatable {
         case expectedSegments  = "expected_segments"
         case createdAt         = "created_at"
         case updatedAt         = "updated_at"
+        
+        // NEW CODING KEY:
+        case isOptimizing      = "is_optimizing"
     }
 }

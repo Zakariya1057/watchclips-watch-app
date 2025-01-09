@@ -5,6 +5,9 @@ struct HelpView: View {
     var body: some View {
         NavigationView {
             List {
+                // New explanation about Optimizing / Optimized
+                NavigationLink("What does 'Optimizing' / 'Optimized' mean?", destination: WhatIsOptimizingView())
+                
                 NavigationLink("How to Change Volume", destination: HowToChangeVolumeView())
                 NavigationLink("How to Skip Ahead", destination: HowToSkipAheadView())
                 
@@ -12,16 +15,44 @@ struct HelpView: View {
                 NavigationLink("How to Connect Headphones/AirPods",
                                destination: HowToConnectHeadphonesView())
                 
-                // NEW: How to Keep App from Exiting
+                // How to Keep App from Exiting
                 NavigationLink("How to Keep App from Exiting",
                                destination: HowToKeepAppOpenView())
                 
+                // Always make "How to Log Out" last
                 NavigationLink("How to Log Out", destination: HowToLogoutView())
             }
             .padding(.top, 20)
         }
         .navigationTitle("Help")
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - What does 'Optimizing' / 'Optimized' mean?
+struct WhatIsOptimizingView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                
+                Text("What does 'Optimizing' / 'Optimized' mean?")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                
+                Text("""
+When you upload a video, we automatically optimize it in the background to reduce file size without sacrificing quality on your Apple Watch. This makes:
+- Downloads faster over Wi-Fi or cellular.
+- Less storage used on your Watch for larger videos.
+
+**Can I still download before it's done?**  
+Yes! You can choose to download immediately. However, if the file is large (e.g., over 1GB), we suggest waiting until optimization completes to get a noticeably smaller file.
+""")
+                .font(.body)
+                .padding(.top, 8)
+            }
+            .padding()
+        }
+        .navigationTitle("'Optimizing' Explained")
     }
 }
 
@@ -99,7 +130,6 @@ struct HowToConnectHeadphonesView: View {
                     .frame(height: 300)
                     .background(Color.white)
                     .cornerRadius(8)
-                
             }
             .padding()
         }

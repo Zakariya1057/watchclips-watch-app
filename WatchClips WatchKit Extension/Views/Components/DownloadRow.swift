@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct DownloadRow: View {
     // MARK: - Inputs
@@ -6,7 +7,7 @@ struct DownloadRow: View {
     let progress: Double   // 0..1
     let isFullyDownloaded: Bool
     
-    /// **NEW**: whether we're currently offline
+    /// Whether we're currently offline
     let isOffline: Bool
 
     let startOrResumeAction: () -> Void
@@ -22,12 +23,14 @@ struct DownloadRow: View {
     private let downloadedStr: String
     private let totalStr: String
     private let fileSizeStr: String
+    
+    // A subtle dark background for the row
+    private let rowBackground = Color.black.opacity(0.1)
 
     init(
         video: DownloadedVideo,
         progress: Double,
         isFullyDownloaded: Bool,
-        /// **NEW**: add `isOffline` to the initializer
         isOffline: Bool,
         startOrResumeAction: @escaping () -> Void,
         pauseAction: @escaping () -> Void,
@@ -59,6 +62,7 @@ struct DownloadRow: View {
         } label: {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
+                    // Header with title + status
                     DownloadRowHeader(
                         video: video,
                         totalStr: totalStr,
@@ -69,7 +73,8 @@ struct DownloadRow: View {
                     if video.downloadStatus == .downloading {
                         ProgressView(value: progress)
                             .frame(maxWidth: .infinity)
-                            .animation(nil, value: progress) // turn off default animation
+                            // turn off default animation
+                            .animation(nil, value: progress)
                     }
 
                     // Show partial or total file-size info
@@ -86,26 +91,53 @@ struct DownloadRow: View {
                         }
                     }
 
-                    // Error
+                    // Error or Optimizing/Optimized
                     if video.downloadStatus == .error {
-                        Text("Error: \(video.errorMessage ?? "Unknown")")
+                        Text("Error: \(isOffline ? "No internet connection." : (video.errorMessage ?? "Unknown"))")
                             .font(.subheadline)
                             .foregroundColor(.red)
+                    } else if video.downloadStatus == .paused || video.downloadStatus == .notStarted {
+                        HStack(spacing: 6) {
+                            if video.video.isOptimizing {
+                                Image(systemName: "gearshape.2.fill")
+                                    .foregroundColor(.yellow)
+                                Text("Optimizing…")
+                                    .font(.footnote)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                            } else {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .foregroundColor(.green)
+                                Text("Optimized!")
+                                    .font(.footnote)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .padding(.vertical, 5)
+                        .padding(.horizontal, 10)
+                        .background(
+                            Capsule()
+                                .fill(video.video.isOptimizing
+                                      ? Color.yellow.opacity(0.15)
+                                      : Color.green.opacity(0.15))
+                        )
+                        .transition(.opacity)
                     }
 
-                    // Processing or action buttons
+                    // If server status is not yet post-processing success, disable real buttons
                     if video.video.status != .postProcessingSuccess {
                         Button("Processing...") { }
                             .disabled(true)
                             .buttonStyle(.borderedProminent)
                             .frame(maxWidth: .infinity)
                     } else {
-                        // Pass `isOffline` into the actions
+                        // Actions: Download, Pause, etc.
                         DownloadRowActions(
                             video: video,
                             isFullyDownloaded: isFullyDownloaded,
                             progress: progress,
-                            isOffline: isOffline,            // <--- pass the offline state here
+                            isOffline: isOffline,
                             startOrResumeAction: startOrResumeAction,
                             pauseAction: pauseAction,
                             onProcessingNeeded: onProcessingNeeded
@@ -114,9 +146,15 @@ struct DownloadRow: View {
                 }
             }
             .padding(.vertical, 8)
+            // Subtle dark background + small corner radius
+            .background(rowBackground)
+            .cornerRadius(8)
         }
+        // Use a plain button style for a simpler dark UI
+        .buttonStyle(PlainButtonStyle())
+        // Disable any implicit row animations (e.g., when progress changes)
         .transaction { transaction in
-            transaction.animation = nil // disable implicit row animations
+            transaction.animation = nil
         }
     }
 
@@ -138,7 +176,8 @@ struct DownloadRow: View {
     private var statusText: some View {
         switch video.downloadStatus {
         case .completed:
-            Text("Downloaded").foregroundColor(.green)
+            Text("Downloaded")
+                .foregroundColor(.green)
         case .downloading:
             Text(String(format: "Downloading (%.0f%%)", progress * 100))
                 .foregroundColor(.blue)
@@ -202,7 +241,7 @@ fileprivate struct DownloadRowActions: View {
     let isFullyDownloaded: Bool
     let progress: Double
     
-    /// **NEW**: Offline state
+    /// Offline state
     let isOffline: Bool
 
     let startOrResumeAction: () -> Void
@@ -225,24 +264,15 @@ fileprivate struct DownloadRowActions: View {
 
             case .error, .paused, .notStarted:
                 if !isFullyDownloaded {
-                    // If OFFLINE, show a disabled "Offline" button
-                    if isOffline {
-                        Button("Offline") {}
-                            .disabled(true)
-                            .buttonStyle(.bordered)
-                            .frame(maxWidth: .infinity)
-                    } else {
-                        // Normal "Download" button
-                        Button("Download") {
-                            if video.video.status == .postProcessingSuccess {
-                                startOrResumeAction()
-                            } else {
-                                onProcessingNeeded()
-                            }
+                    Button("Download") {
+                        if video.video.status == .postProcessingSuccess {
+                            startOrResumeAction()
+                        } else {
+                            onProcessingNeeded()
                         }
-                        .buttonStyle(.borderedProminent)
-                        .frame(maxWidth: .infinity)
                     }
+                    .buttonStyle(.borderedProminent)
+                    .frame(maxWidth: .infinity)
                 }
             }
         }
