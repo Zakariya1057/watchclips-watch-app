@@ -204,7 +204,7 @@ struct VideoListView: View {
 
     private var continueWatching: some View {
         Group {
-            if let resume = sharedVM.activePlan?.features?.resumeFeature, resume == true {
+            if !sharedVM.videos.isEmpty, let resume = sharedVM.activePlan?.features?.resumeFeature, resume == true {
                 if let lastPlayedVideoId = playbackProgressService.lastPlayedVideoId {
                     Button {
                         if let matchingVideo = sharedVM.videos.first(where: { $0.id == lastPlayedVideoId }) {

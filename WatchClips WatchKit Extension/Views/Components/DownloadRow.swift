@@ -137,6 +137,7 @@ struct DownloadRow: View {
                             video: video,
                             isFullyDownloaded: isFullyDownloaded,
                             progress: progress,
+                            downloadedBytes: downloadedBytes,
                             isOffline: isOffline,
                             startOrResumeAction: startOrResumeAction,
                             pauseAction: pauseAction,
@@ -241,6 +242,8 @@ fileprivate struct DownloadRowActions: View {
     let isFullyDownloaded: Bool
     let progress: Double
     
+    let downloadedBytes: Int64
+    
     /// Offline state
     let isOffline: Bool
 
@@ -264,7 +267,7 @@ fileprivate struct DownloadRowActions: View {
 
             case .error, .paused, .notStarted:
                 if !isFullyDownloaded {
-                    Button("Download") {
+                    Button(downloadedBytes > 0 ? "Resume" : "Download") {
                         if video.video.status == .postProcessingSuccess {
                             startOrResumeAction()
                         } else {
