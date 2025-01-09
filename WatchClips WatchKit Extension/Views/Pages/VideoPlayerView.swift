@@ -253,16 +253,18 @@ struct VideoPlayerView: View {
             DispatchQueue.main.async {
                 switch item.status {
                 case .readyToPlay:
-                    isLoading = false
-                    updatePlaybackStateIfReady()
                     updateNowPlayingInfo()
                     
                     if sharedVM.activePlan?.name == .pro {
                         if let (progress, _) = playbackProgressService.getProgress(videoId: videoId),
                            progress > 0 {
                             seekTo(time: progress, playIfNeeded: isPlaying)
-                            player?.play()
+                            updatePlaybackStateIfReady()
+                            isLoading = false
                         }
+                    } else {
+                        updatePlaybackStateIfReady()
+                        isLoading = false
                     }
                 case .failed:
                     handlePlaybackError(
@@ -396,6 +398,7 @@ struct VideoPlayerView: View {
               item.status == .readyToPlay else {
             return
         }
+        
         if isPlaying {
             p.playImmediately(atRate: 1.0)
         } else {

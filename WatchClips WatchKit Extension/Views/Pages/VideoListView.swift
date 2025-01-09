@@ -86,7 +86,7 @@ struct VideoListView: View {
                         // Lazy-load plan info only once
                         if !pageLoaded {
                             Task {
-                                await sharedVM.fetchPlan()
+                                await sharedVM.fetchPlan(useCache: false)
                             }
                             pageLoaded = true
                         }
@@ -217,9 +217,14 @@ struct VideoListView: View {
     
     private var loadingRow: some View {
         HStack {
-            ProgressView("Loading videos...")
-                .progressViewStyle(CircularProgressViewStyle())
-                .padding()
+            VStack(spacing: 8) {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle())
+                    .scaleEffect(1.5)
+
+                Text("Loading videos...")
+            }
+            .padding()
         }
         .padding()
     }

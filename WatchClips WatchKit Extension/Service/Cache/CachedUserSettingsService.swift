@@ -10,10 +10,12 @@ import Combine
 
 class CachedUserSettingsService: ObservableObject {
     private let userSettingsService: UserSettingsService
+    private let codeService: CodeService
     private let repository = UserSettingsRepository.shared
     
-    init(userSettingsService: UserSettingsService) {
+    init(userSettingsService: UserSettingsService, codeService: CodeService) {
         self.userSettingsService = userSettingsService
+        self.codeService = codeService
     }
     
     // MARK: - Local Cache Only
@@ -25,6 +27,16 @@ class CachedUserSettingsService: ObservableObject {
     
     // MARK: - Fetch with Optional userId
     
+    func fetchUserId(id: String) async -> UUID? {
+        do {
+            let data = try await codeService.fetchCode(byId: id)
+            return data.userId
+        } catch {
+            // Handle or log the error, then return nil (or any fallback)
+            print("Error fetching code: \(error)")
+            return nil
+        }
+    }
     /**
      Fetches the user's active plan:
      

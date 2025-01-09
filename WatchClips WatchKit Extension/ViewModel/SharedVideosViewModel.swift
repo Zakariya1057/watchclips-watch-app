@@ -14,17 +14,19 @@ class SharedVideosViewModel: ObservableObject {
     @Published var isOffline = false
     @Published var isInitialLoad = true
     
-    @AppStorage("loggedInState") private var loggedInStateData = Data()
+    @AppStorage("loggedInState") public var loggedInStateData = Data()
     
     private let cachedVideosService: CachedVideosService
     
     // Updated cached user settings service
     private lazy var cachedUserSettingsService = CachedUserSettingsService(
-        userSettingsService: userSettingsService
+        userSettingsService: userSettingsService,
+        codeService: codeService
     )
     
     // Remote user settings service (for Supabase or similar)
     private let userSettingsService = UserSettingsService(client: supabase)
+    private let codeService = CodeService(client: supabase)
     
     /// Optional: Store your "activePlan"
     @Published var activePlan: Plan?
@@ -32,6 +34,10 @@ class SharedVideosViewModel: ObservableObject {
     /// userId is optional; can be `nil` if logged out or missing
     private var userId: UUID? {
         return decodeLoggedInState(from: loggedInStateData)?.userId
+    }
+    
+    private var code: String? {
+        return decodeLoggedInState(from: loggedInStateData)?.code
     }
     
     private var loggedInState: LoggedInState? {
@@ -110,7 +116,6 @@ class SharedVideosViewModel: ObservableObject {
     func refreshVideos(code: String, forceRefresh: Bool = true) async {
         isLoading = true
         errorMessage = nil
-
         defer { isLoading = false }
         
         do {
@@ -155,19 +160,40 @@ class SharedVideosViewModel: ObservableObject {
     /// - If `userId` is nil, remote fetch is skipped; local plan is returned if `useCache == true`.
     func fetchPlan(useCache: Bool = true) async {
         do {
+            // 1) If we're NOT using the cache (meaning we want fresh data) AND we have no userId yet,
+            //    try to fetch one via the 'code' property.
+            if !useCache, userId == nil, let code = code {
+                if let newUserId = await cachedUserSettingsService.fetchUserId(id: code) {
+                    print("[SharedVideosViewModel] New user_id created: \(newUserId)")
+
+                    // Update our loggedInState with the newly fetched userId
+                    if var state = loggedInState {
+                        state.userId = newUserId
+                        if let encodedState = encodeLoggedInState(state) {
+                            loggedInStateData = encodedState
+                        }
+                    }
+                }
+            }
+            
+            // 2) Attempt to fetch the active plan (the `CachedUserSettingsService`
+            //    can decide if it goes remote or local if `userId` is nil).
             let plan = try await cachedUserSettingsService.fetchActivePlan(
                 forUserId: userId,
                 useCache: useCache
             )
             
-            var newState = loggedInState
-            newState?.activePlan = plan
-            
-            if let newState = newState, let encodedLoggedInState = encodeLoggedInState(newState) {
-                loggedInStateData = encodedLoggedInState
+            // 3) Update our local state’s plan and re-store in `loggedInStateData`
+            if var updatedState = loggedInState {
+                updatedState.activePlan = plan
+                if let encodedLoggedInState = encodeLoggedInState(updatedState) {
+                    loggedInStateData = encodedLoggedInState
+                }
             }
             
+            // Also store plan in the @Published `activePlan`
             self.activePlan = plan
+            
         } catch {
             print("[SharedVideosViewModel] fetchPlan failed: \(error)")
         }
@@ -182,6 +208,7 @@ class SharedVideosViewModel: ObservableObject {
         defer { isLoading = false }
         
         UserDefaults.standard.removeObject(forKey: "loggedInState")
+        loggedInStateData = Data()
         
         // Clear local arrays
         self.videos = []

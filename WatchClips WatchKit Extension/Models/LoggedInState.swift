@@ -11,7 +11,7 @@ struct LoggedInState: Codable, Equatable, Identifiable {
     var id: String { code }  // or any unique property
 
     let code: String       // The code the user entered
-    let userId: UUID?      // E.g. if the code is associated with a user
+    var userId: UUID?      // E.g. if the code is associated with a user
     
     // NEW: Store the entire Plan (includes the 'features' field)
     var activePlan: Plan?

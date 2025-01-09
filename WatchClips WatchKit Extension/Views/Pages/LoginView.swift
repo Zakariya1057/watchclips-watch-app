@@ -7,6 +7,8 @@ struct LoginView: View {
     @State private var errorMessage: String?
     @State private var showHelpAlert = false
 
+    @EnvironmentObject private var sharedVM: SharedVideosViewModel
+    
     @AppStorage("loggedInState") private var loggedInStateData = Data()
 
     private var codesService: CodeService { CodeService(client: supabase) }
@@ -55,12 +57,19 @@ struct LoginView: View {
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()
 
-                ProgressView("Checking code...")
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    .padding()
-                    .background(Color.black.opacity(0.7))
-                    .cornerRadius(10)
-                    .foregroundColor(.white)
+                VStack(spacing: 8) {
+                    // The circular spinner, scaled up
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(1.5) // Adjust this as needed
+
+                    // The text, unscaled
+                    Text("Logging in...")
+                        .foregroundColor(.white)
+                }
+                .padding()
+                .background(Color.black.opacity(0.7))
+                .cornerRadius(10)
             }
         }
         // Alert for errors
@@ -95,6 +104,7 @@ struct LoginView: View {
                 
                 let newState = LoggedInState(code: codeRecord.id, userId: codeRecord.userId, activePlan: plan)
                 loggedInStateData = encodeLoggedInState(newState) ?? Data()
+                sharedVM.loggedInStateData = encodeLoggedInState(newState) ?? Data()
             } catch {
                 handleError(error)
             }
