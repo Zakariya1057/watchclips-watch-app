@@ -1,21 +1,10 @@
-//
-//  VideoListView.swift
-//  WatchClips
-//
-//  Created by Zakariya Hassan on 31/12/2024.
-//
-
 import SwiftUI
 
 struct VideoListView: View {
     @AppStorage("loggedInState") private var loggedInStateData = Data()
     
-    // Access your userSettingsService from the environment
     @EnvironmentObject private var mainUserSettingsService: UserSettingsService
-    
-    // Access the shared videos VM from environment
     @EnvironmentObject private var sharedVM: SharedVideosViewModel
-    
     @EnvironmentObject private var playbackProgressService: PlaybackProgressService
     
     @State private var showErrorAlert = false
@@ -29,7 +18,6 @@ struct VideoListView: View {
     @StateObject private var notificationManager = NotificationManager.shared
     var downloadStore: DownloadsStore = DownloadsStore()
     
-    
     // AppState singleton that holds the current selectedVideo
     @StateObject private var appState = AppState.shared
     
@@ -38,6 +26,11 @@ struct VideoListView: View {
         decodeLoggedInState(from: loggedInStateData)?.code ?? ""
     }
     
+    // NEW: Track a delayed loading indicator
+    @State private var showLoadingIndicator = false
+    // Keep a reference to the "delay task" so we can cancel it
+    @State private var loadingDelayTask: Task<Void, Never>? = nil
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -45,17 +38,25 @@ struct VideoListView: View {
                     downloadsLink
                     continueWatching
                     
-                    if sharedVM.isLoading {
-                        loadingRow
-                    }
-                    
                     if sharedVM.isOffline {
                         offlineBannerRow
                     }
                     
-                    if sharedVM.videos.isEmpty && !sharedVM.isLoading {
+                    // Show loading row only if:
+                    // 1) no videos are available yet AND
+                    // 2) loading has exceeded the 1.5-second threshold
+                    if sharedVM.videos.isEmpty {
+                        if showLoadingIndicator {
+                            loadingRow
+                        }
                         emptyOrErrorStateRows
                     } else {
+                        // If we do have videos but loading is still ongoing (maybe for updates),
+                        // also show the loading row after the delay
+                        if showLoadingIndicator {
+                            loadingRow
+                        }
+                        
                         // MAIN list of videos
                         ForEach(Array(sharedVM.videos.enumerated()), id: \.element.id) { index, video in
                             VideoRow(
@@ -80,7 +81,7 @@ struct VideoListView: View {
                 }
                 .listStyle(.plain)
                 
-                // Called the FIRST time the view appears (and if navigated away + back)
+                // Called the FIRST time the view appears
                 .onAppear {
                     DispatchQueue.main.async {
                         // Lazy-load plan info only once
@@ -92,7 +93,6 @@ struct VideoListView: View {
                         }
                     }
                 }
-                
                 // If we come back online after being offline, do a refresh
                 .onReceive(networkMonitor.$isConnected) { isConnected in
                     if isConnected, sharedVM.isOffline, !sharedVM.isInitialLoad {
@@ -103,7 +103,26 @@ struct VideoListView: View {
                     }
                 }
             }
-            // Navigation Bar items
+            // Watch for changes in isLoading to decide if we show the spinner
+            .onChange(of: sharedVM.isLoading) { newValue in
+                if newValue {
+                    // Cancel any existing delay task
+                    loadingDelayTask?.cancel()
+                    // Schedule a new task for 1.5s in the future
+                    loadingDelayTask = Task {
+                        try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
+                        // If still loading, show the indicator
+                        if !Task.isCancelled && sharedVM.isLoading {
+                            showLoadingIndicator = true
+                        }
+                    }
+                } else {
+                    // Not loading => hide the indicator and cancel the delay
+                    loadingDelayTask?.cancel()
+                    showLoadingIndicator = false
+                }
+            }
+            
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if let planName = sharedVM.activePlan?.name {
@@ -172,7 +191,6 @@ struct VideoListView: View {
                 notificationManager.requestAuthorization()
             }
         }
-        // Fullscreen cover for downloads
         .fullScreenCover(isPresented: $showDownloadList) {
             ZStack {
                 Color.black
@@ -186,7 +204,6 @@ struct VideoListView: View {
 
     private var continueWatching: some View {
         Group {
-            // If the plan includes a "resume" feature, show "Continue" button
             if let resume = sharedVM.activePlan?.features?.resumeFeature, resume == true {
                 if let lastPlayedVideoId = playbackProgressService.lastPlayedVideoId {
                     Button {
@@ -215,14 +232,23 @@ struct VideoListView: View {
         }
     }
     
+    /// **A more descriptive loading view** after 1.5s delay
     private var loadingRow: some View {
         HStack {
-            VStack(spacing: 8) {
+            VStack(spacing: 12) {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle())
                     .scaleEffect(1.5)
 
+                // Combined message
                 Text("Loading videos...")
+                    .font(.headline)
+                
+                // Extra line to reassure user
+                Text("It's taking a bit of time.\nPlease be patient.")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
             }
             .padding()
         }
@@ -267,13 +293,10 @@ struct VideoListView: View {
     
     private var offlineBannerRow: some View {
         ZStack {
-            // Solid dark-purple background
             Color(red: 46/255, green: 36/255, blue: 89/255)
                 .cornerRadius(8)
             
             VStack(alignment: .center, spacing: 6) {
-                // Top line: Title + Icon
-                
                 HStack(alignment: .center, spacing: 8) {
                     Text("Offline Mode")
                         .font(.headline)
@@ -285,7 +308,6 @@ struct VideoListView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
                 
-                // Subtitle
                 Text("No internet connection.\nWatch downloaded videos.")
                     .font(.subheadline)
                     .foregroundColor(Color.white.opacity(0.9))

@@ -18,6 +18,10 @@ struct DownloadList: View {
     @State private var showProcessingAlert = false
     @State private var selectedVideo: Video?
     
+    // Decouple "loading too long" indicator from `sharedVM.isLoading`
+    @State private var showLoadingIndicator = false
+    @State private var loadingDelayTask: Task<Void, Never>? = nil
+    
     let code: String
     
     init(code: String) {
@@ -27,20 +31,17 @@ struct DownloadList: View {
     var body: some View {
         VStack {
             if sharedVM.videos.isEmpty {
-                
-                // 1) Loading / Empty states...
-                if sharedVM.isLoading {
-                    HStack {
-                        ProgressView("Loading videos...")
-                            .progressViewStyle(CircularProgressViewStyle())
-                            .padding()
-                    }
+                // Only show the spinner if we've been loading for more than 1.5 seconds
+                if showLoadingIndicator {
+                    loadingView
                 }
                 
+                // If there's an error, show it
                 if let error = sharedVM.errorMessage {
                     Text("Failed or no videos: \(error)")
-                } else if !sharedVM.isLoading {
-                    // Only show "No Videos Found" if not loading
+                }
+                // If no error and not loading, show "No Videos Found"
+                else if !sharedVM.isLoading && !showLoadingIndicator {
                     VStack(spacing: 16) {
                         Text("No Videos Found")
                             .font(.headline)
@@ -54,10 +55,14 @@ struct DownloadList: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 20)
                 }
-                
             } else {
+                // If we do have videos, but loading is still ongoing,
+                // we can still show the delayed indicator for partial updates if desired
+                if showLoadingIndicator {
+                    loadingView
+                }
                 
-                // 2) Main List of videos
+                // Main list of videos
                 List {
                     // IMPORTANT: Make sure Video is Identifiable
                     ForEach(sharedVM.videos, id: \.id) { vid in
@@ -66,6 +71,7 @@ struct DownloadList: View {
                         
                         DownloadRowContainer(
                             downloadedVideo: downloadedVideo,
+                            isOffline: sharedVM.isOffline,
                             startOrResumeAction: {
                                 if downloadedVideo.video.status != .postProcessingSuccess {
                                     showProcessingAlert = true
@@ -101,8 +107,8 @@ struct DownloadList: View {
                     }
                 }
                 .listStyle(.plain)
-                // Disable implicit animations that can cause re-layout or slow performance with large data
                 .transaction { transaction in
+                    // Disable implicit row animations
                     transaction.animation = nil
                 }
             }
@@ -128,6 +134,27 @@ struct DownloadList: View {
                 }
             }
         }
+        // Monitor .isLoading changes in sharedVM
+        .onChange(of: sharedVM.isLoading) { newValue in
+            if newValue {
+                // Cancel any existing task so we don’t stack multiple
+                loadingDelayTask?.cancel()
+                
+                // Schedule a new delay for 1.5 seconds
+                loadingDelayTask = Task {
+                    try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5s
+                    // If still loading, show indicator
+                    if !Task.isCancelled && sharedVM.isLoading {
+                        showLoadingIndicator = true
+                    }
+                }
+            } else {
+                // Loading ended => cancel delay + hide indicator
+                loadingDelayTask?.cancel()
+                showLoadingIndicator = false
+            }
+        }
+        // On scene becoming active, refresh
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
                 Task {
@@ -136,22 +163,23 @@ struct DownloadList: View {
                 }
             }
         }
+        // On appear, do an initial refresh
         .onAppear {
-            // Let the view fully appear, then check for changes
             Task {
                 await sharedVM.refreshVideos(code: code, forceRefresh: true)
                 downloadsVM.onAppearCheckForURLChanges()
             }
         }
+        // Hide default nav back button
         .navigationBarBackButtonHidden(true)
         
-        // 3) Full-Screen Video Playback
+        // Full-Screen Video Playback
         .fullScreenCover(item: $selectedVideo) { video in
             VideoPlayerView(code: video.code, videoId: video.id, filename: video.filename)
                 .ignoresSafeArea()
         }
         
-        // 4) “Video Not Ready” Alert
+        // “Video Not Ready” Alert
         .alert("Video Not Ready", isPresented: $showProcessingAlert) {
             Button("OK", role: .cancel) {
                 Task {
@@ -163,11 +191,35 @@ struct DownloadList: View {
             Text("We’re still optimizing this video for Apple Watch. Please try again soon.")
         }
     }
+    
+    /// Loading spinner + extra text to reassure the user
+    private var loadingView: some View {
+        HStack {
+            VStack(spacing: 12) {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle())
+                    .scaleEffect(1.4)
+                
+                Text("Loading videos...")
+                    .font(.headline)
+                
+                // Additional reassurance message
+                Text("It's taking a bit of time.\nPlease be patient.")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding()
+        }
+        .padding()
+    }
 }
 
+/// Container that reuses the layout logic for a single row.
 fileprivate struct DownloadRowContainer: View {
     let downloadedVideo: DownloadedVideo
     
+    let isOffline: Bool
     let startOrResumeAction: () -> Void
     let pauseAction: () -> Void
     let deleteAction: () -> Void
@@ -179,12 +231,11 @@ fileprivate struct DownloadRowContainer: View {
     var body: some View {
         // “DownloadRow” logic extracted into a container
         // to reduce repeated layout calculations & re-renders.
-        //
-        // This helps SwiftUI track the row’s identity more efficiently.
         DownloadRow(
             video: downloadedVideo,
             progress: downloadsVM.progress(for: downloadedVideo),
             isFullyDownloaded: downloadsVM.isFullyDownloaded(downloadedVideo),
+            isOffline: isOffline,
             startOrResumeAction: startOrResumeAction,
             pauseAction: pauseAction,
             deleteAction: deleteAction,

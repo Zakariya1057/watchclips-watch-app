@@ -5,6 +5,9 @@ struct DownloadRow: View {
     let video: DownloadedVideo
     let progress: Double   // 0..1
     let isFullyDownloaded: Bool
+    
+    /// **NEW**: whether we're currently offline
+    let isOffline: Bool
 
     let startOrResumeAction: () -> Void
     let pauseAction: () -> Void
@@ -24,6 +27,8 @@ struct DownloadRow: View {
         video: DownloadedVideo,
         progress: Double,
         isFullyDownloaded: Bool,
+        /// **NEW**: add `isOffline` to the initializer
+        isOffline: Bool,
         startOrResumeAction: @escaping () -> Void,
         pauseAction: @escaping () -> Void,
         deleteAction: @escaping () -> Void,
@@ -32,6 +37,7 @@ struct DownloadRow: View {
         self.video = video
         self.progress = progress
         self.isFullyDownloaded = isFullyDownloaded
+        self.isOffline = isOffline
         self.startOrResumeAction = startOrResumeAction
         self.pauseAction = pauseAction
         self.deleteAction = deleteAction
@@ -48,11 +54,6 @@ struct DownloadRow: View {
     }
 
     var body: some View {
-        // We make the entire row a button-like area, but you can remove the Button
-        // and use .onTapGesture if you prefer.
-        //
-        // We also disable default animations with .transaction
-        // so frequent progress updates don’t animate layout changes.
         Button {
             handleRowTap()
         } label: {
@@ -68,8 +69,7 @@ struct DownloadRow: View {
                     if video.downloadStatus == .downloading {
                         ProgressView(value: progress)
                             .frame(maxWidth: .infinity)
-                            // Remove default animation for the progress bar
-                            .animation(nil, value: progress)
+                            .animation(nil, value: progress) // turn off default animation
                     }
 
                     // Show partial or total file-size info
@@ -100,10 +100,12 @@ struct DownloadRow: View {
                             .buttonStyle(.borderedProminent)
                             .frame(maxWidth: .infinity)
                     } else {
+                        // Pass `isOffline` into the actions
                         DownloadRowActions(
                             video: video,
                             isFullyDownloaded: isFullyDownloaded,
                             progress: progress,
+                            isOffline: isOffline,            // <--- pass the offline state here
                             startOrResumeAction: startOrResumeAction,
                             pauseAction: pauseAction,
                             onProcessingNeeded: onProcessingNeeded
@@ -113,9 +115,8 @@ struct DownloadRow: View {
             }
             .padding(.vertical, 8)
         }
-        // Disable any implicit row animations (e.g., when progress changes)
         .transaction { transaction in
-            transaction.animation = nil
+            transaction.animation = nil // disable implicit row animations
         }
     }
 
@@ -124,7 +125,6 @@ struct DownloadRow: View {
         switch video.downloadStatus {
         case .completed:
             // Possibly present the player
-            // (Parent view can also override tap if you prefer .onTapGesture)
             break
         default:
             if video.video.status != .postProcessingSuccess {
@@ -152,11 +152,10 @@ struct DownloadRow: View {
 
 // MARK: - Subviews
 
-/// A light-weight subview for the row’s “title + status” display.
 fileprivate struct DownloadRowHeader: View {
     let video: DownloadedVideo
     let totalStr: String
-    let statusText: AnyView  // We'll pass it as a view to keep it simpler
+    let statusText: AnyView
 
     init(video: DownloadedVideo, totalStr: String, statusText: some View) {
         self.video = video
@@ -202,6 +201,9 @@ fileprivate struct DownloadRowActions: View {
     let video: DownloadedVideo
     let isFullyDownloaded: Bool
     let progress: Double
+    
+    /// **NEW**: Offline state
+    let isOffline: Bool
 
     let startOrResumeAction: () -> Void
     let pauseAction: () -> Void
@@ -223,20 +225,29 @@ fileprivate struct DownloadRowActions: View {
 
             case .error, .paused, .notStarted:
                 if !isFullyDownloaded {
-                    Button("Download") {
-                        if video.video.status == .postProcessingSuccess {
-                            startOrResumeAction()
-                        } else {
-                            onProcessingNeeded()
+                    // If OFFLINE, show a disabled "Offline" button
+                    if isOffline {
+                        Button("Offline") {}
+                            .disabled(true)
+                            .buttonStyle(.bordered)
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        // Normal "Download" button
+                        Button("Download") {
+                            if video.video.status == .postProcessingSuccess {
+                                startOrResumeAction()
+                            } else {
+                                onProcessingNeeded()
+                            }
                         }
+                        .buttonStyle(.borderedProminent)
+                        .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .frame(maxWidth: .infinity)
                 }
             }
         }
         .padding(.vertical, 5)
-        // Remove default animation for action buttons if e.g. progress updates
+        // Disable default animations so the row won't jump around
         .animation(nil, value: video.downloadStatus)
         .animation(nil, value: progress)
     }
