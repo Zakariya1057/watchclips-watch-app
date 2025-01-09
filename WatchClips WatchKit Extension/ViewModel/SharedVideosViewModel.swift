@@ -132,6 +132,8 @@ class SharedVideosViewModel: ObservableObject {
                 self.isOffline = false
             }
             
+            print(fetchedVideos.map {$0.filename} )
+            
             self.videos = fetchedVideos
             self.isInitialLoad = false
             self.errorMessage = nil

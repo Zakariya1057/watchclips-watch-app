@@ -7,7 +7,7 @@ struct ContentView: View {
     @EnvironmentObject var videosService: VideosService
     @EnvironmentObject var cachedService: CachedVideosService
     @EnvironmentObject var downloadViewModel: DownloadsViewModel
-    @EnvironmentObject private var sharedVM: SharedVideosViewModel
+    @EnvironmentObject var sharedVM: SharedVideosViewModel
     
     private var code: String? {
         decodeLoggedInState(from: loggedInStateData)?.code
@@ -33,6 +33,7 @@ struct ContentView: View {
                                     await sharedVM.loadVideos(code: code, useCache: videosSet)
                                     downloadViewModel.setVideos(newVideos: sharedVM.videos)
                                     downloadViewModel.resumeInProgressDownloads()
+                                    downloadViewModel.onAppearCheckForURLChanges()
                                     self.videosSet = true
                                 }
                             }

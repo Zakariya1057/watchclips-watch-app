@@ -13,7 +13,7 @@ enum DownloadStatus: String, Codable {
 /// A single item that the user can download, bridging your `Video` model with local download info.
 struct DownloadedVideo: Identifiable, Codable {
     // Original server video metadata
-    let video: Video
+    var video: Video
 
     // Our local tracking properties:
     var downloadStatus: DownloadStatus

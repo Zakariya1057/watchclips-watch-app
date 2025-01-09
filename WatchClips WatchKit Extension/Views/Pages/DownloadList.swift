@@ -59,15 +59,6 @@ struct DownloadList: View {
                 
                 // 2) Main List of videos
                 List {
-                    // Show top-of-list progress if still loading more
-                    if sharedVM.isLoading {
-                        HStack {
-                            ProgressView("Loading videos...")
-                                .progressViewStyle(CircularProgressViewStyle())
-                                .padding()
-                        }
-                    }
-                    
                     // IMPORTANT: Make sure Video is Identifiable
                     ForEach(sharedVM.videos, id: \.id) { vid in
                         // Convert to "DownloadedVideo"
@@ -130,6 +121,7 @@ struct DownloadList: View {
                 Button {
                     Task {
                         await sharedVM.refreshVideos(code: code, forceRefresh: true)
+                        downloadsVM.onAppearCheckForURLChanges()
                     }
                 } label: {
                     Image(systemName: "arrow.clockwise")
@@ -139,6 +131,7 @@ struct DownloadList: View {
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
                 Task {
+                    await sharedVM.refreshVideos(code: code, forceRefresh: true)
                     downloadsVM.onAppearCheckForURLChanges()
                 }
             }
@@ -146,6 +139,7 @@ struct DownloadList: View {
         .onAppear {
             // Let the view fully appear, then check for changes
             Task {
+                await sharedVM.refreshVideos(code: code, forceRefresh: true)
                 downloadsVM.onAppearCheckForURLChanges()
             }
         }

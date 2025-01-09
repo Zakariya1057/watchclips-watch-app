@@ -16,9 +16,9 @@ struct MyWatchApp: App {
         // 1) Build the actual services
         let videosService = VideosService(client: supabase)
         let cachedVideosService = CachedVideosService(videosService: videosService)
-        let downloadsViewModel = DownloadsViewModel(cachedVideosService: cachedVideosService)
         let sharedViewModel = SharedVideosViewModel(cachedVideosService: cachedVideosService)
-        
+        let downloadsViewModel = DownloadsViewModel(cachedVideosService: cachedVideosService, sharedVM: sharedViewModel)
+
         // NEW: Create your user settings service
         let userSettingsService = UserSettingsService(client: supabase)
         

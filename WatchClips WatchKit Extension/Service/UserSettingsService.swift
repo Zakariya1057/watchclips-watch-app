@@ -19,9 +19,6 @@ class UserSettingsService: ObservableObject {
         
         if let userId = userId {
             let userIdString = userId.uuidString
-            
-            print("User Id: \(userIdString)")
-            
             // 1) Perform the query, returning an array (no `.single()`).
             let response = try await client
                 .from("subscriptions")

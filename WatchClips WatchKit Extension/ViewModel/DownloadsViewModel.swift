@@ -26,7 +26,7 @@ protocol SegmentedDownloadManagerDelegate: AnyObject {
 class DownloadsViewModel: ObservableObject {
     // MARK: - Published Properties
 
-    @EnvironmentObject var sharedVM: SharedVideosViewModel
+    private var sharedVM: SharedVideosViewModel
     
     @Published var videos: [DownloadedVideo] = []
     
@@ -41,8 +41,9 @@ class DownloadsViewModel: ObservableObject {
 
     // MARK: - Init
 
-    init(cachedVideosService: CachedVideosService) {
+    init(cachedVideosService: CachedVideosService, sharedVM: SharedVideosViewModel) {
         self.cachedVideosService = cachedVideosService
+        self.sharedVM = sharedVM
         
         // Become the chunk-based delegate
         bgManager.segmentedDelegate = self
@@ -73,7 +74,7 @@ class DownloadsViewModel: ObservableObject {
                     downloadedBytes: 0,
                     totalBytes: video.size ?? 0,
                     errorMessage: nil,
-                    lastDownloadURL: nil
+                    lastDownloadURL: URL(string: video.filename)
                 )
             }
         }
@@ -176,27 +177,55 @@ class DownloadsViewModel: ObservableObject {
     /// Call this from a SwiftUI View's `onAppear` to ensure each video's URL is up-to-date.
     /// If the URL has changed, call `startDownload(...)`.
     /// If it's unchanged, do nothing.
+    /// Checks if any downloaded video’s remote URL has changed since last time,
+    /// and resumes the download with the new URL if needed.
     func onAppearCheckForURLChanges() {
         print("[DownloadsViewModel] onAppear => Checking for any changed URLs in all videos.")
         
-        for (index, item) in videos.enumerated() {
-            // Build the current/expected remote URL
-            guard let remoteURL = buildRemoteURL(item.video) else {
-                print("[DownloadsViewModel] [ERROR] Could not build remote URL for \(item.id). Skipping check.")
+        for downloadedVideo in videos {
+            // 1) Find the matching updated Video from SharedVideosViewModel
+            guard let updatedVideo = sharedVM.videos.first(where: { $0.id == downloadedVideo.video.id }) else {
+                // If this video no longer exists in sharedVM, cancel any ongoing download
+                bgManager.cancelDownload(videoId: downloadedVideo.video.id)
                 continue
             }
             
-            // If the URL changed (or was never set), let's force a (re)startDownload
-            if item.lastDownloadURL != remoteURL, item.downloadedBytes > 0, item.downloadStatus == .downloading {
-                print("[DownloadsViewModel] \(item.id)'s URL changed (or nil). Calling startDownload.")
+            // 2) Extract local variables
+            let oldFilename = downloadedVideo.video.filename
+            let newFilename = updatedVideo.filename
+            
+            updateStatus(downloadedVideo.id,
+                         status: downloadedVideo.downloadStatus,
+                         receivedBytes: 0,
+                         totalBytes: updatedVideo.size,
+                         errorMessage: nil,
+                         video: updatedVideo
+            )
+            
+            print("[DownloadsViewModel] Checking video \(downloadedVideo.id): \(oldFilename) -> \(newFilename)")
+            
+            // 3) Check if filename has changed while we have partial data
+            let isFilenameChanged = (newFilename != oldFilename)
+            let isInProgress = (downloadedVideo.downloadStatus == .downloading)
+            
+            // 4) If the filename changed, update local totalBytes if the remote size changed, then resume download
+            if isFilenameChanged || downloadedVideo.errorMessage != nil {
+                print("[DownloadsViewModel] \(downloadedVideo.id)'s URL changed. Updating size (if any) and resuming download with new URL.")
                 
-                bgManager.resumeDownload(videoId: item.id, from: remoteURL)
+                // (4b) Rebuild URL and resume download
+                guard let remoteURL = buildRemoteURL(updatedVideo) else {
+                    print("[DownloadsViewModel] [ERROR] Could not build remote URL for \(downloadedVideo.id). Skipping.")
+                    continue
+                }
                 
-                // Update lastDownloadURL in our local array
-                videos[index].lastDownloadURL = remoteURL
-                persist()
+                if isInProgress {
+                    bgManager.resumeDownload(videoId: downloadedVideo.id, from: remoteURL)
+                    // Persist the updated state to disk
+                    persist()
+                }
             } else {
-                print("[DownloadsViewModel] \(item.id)'s URL has not changed. Doing nothing.")
+                // If filename hasn’t changed, or it's not actively downloading, do nothing
+                print("[DownloadsViewModel] \(downloadedVideo.id)'s URL unchanged or not in progress. No action taken.")
             }
         }
     }
@@ -216,7 +245,9 @@ class DownloadsViewModel: ObservableObject {
                               status: DownloadStatus,
                               receivedBytes: Int64? = nil,
                               totalBytes: Int64? = nil,
-                              errorMessage: String? = nil) {
+                              errorMessage: String? = nil,
+                              video: Video? = nil
+    ) {
         guard let idx = videos.firstIndex(where: { $0.id == videoId }) else {
             print("[DownloadsViewModel] [ERROR] No matching video found for \(videoId).")
             return
@@ -227,6 +258,10 @@ class DownloadsViewModel: ObservableObject {
         v.downloadedBytes = receivedBytes ?? v.downloadedBytes
         v.totalBytes = totalBytes ?? v.totalBytes
         v.errorMessage = errorMessage
+        
+        if let video = video {
+            v.video = video
+        }
         
         videos[idx] = v
         
@@ -336,7 +371,7 @@ extension DownloadsViewModel {
                 downloadedBytes: 0,
                 totalBytes: video.size ?? 0,
                 errorMessage: nil,
-                lastDownloadURL: nil
+                lastDownloadURL: URL(string: video.filename)
             )
             
             // Append it safely on the main thread

@@ -20,9 +20,8 @@ struct Video: Identifiable, Codable, Equatable {
     let code: String
     let title: String?
     let image: String?
-    let filename: String
-    let url: String?
-    let size: Int64?
+    var filename: String
+    var size: Int64?
     let duration: Int?
     let createdAt: Date
     let updatedAt: Date
@@ -33,7 +32,7 @@ struct Video: Identifiable, Codable, Equatable {
     let expectedSegments: Int?
 
     enum CodingKeys: String, CodingKey {
-        case id, code, title, image, filename, url, size, duration, status
+        case id, code, title, image, filename, size, duration, status
         case processedSegments = "processed_segments"
         case expectedSegments  = "expected_segments"
         case createdAt         = "created_at"

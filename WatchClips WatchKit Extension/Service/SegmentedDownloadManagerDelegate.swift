@@ -504,9 +504,11 @@ class SegmentedDownloadManager: NSObject {
                 
                 // Notify progress
                 self.segmentedDelegate?.segmentedDownloadDidUpdateProgress(videoId: videoId, progress: fraction)
-                self.oldDelegate?.downloadDidUpdateProgress(videoId: videoId,
-                                                            receivedBytes: Int64(Double(fraction) * Double(ctx.totalSize)),
-                                                            totalBytes: ctx.totalSize)
+                self.oldDelegate?.downloadDidUpdateProgress(
+                    videoId: videoId,
+                    receivedBytes: Int64(Double(fraction) * Double(ctx.totalSize)),
+                    totalBytes: ctx.totalSize
+                )
                 
                 // Attempt next segment
                 self.startNextSegmentIfAvailable(ctx)
@@ -590,9 +592,11 @@ class SegmentedDownloadManager: NSObject {
         // Mark final progress as 100% to ensure delegates see completion at full
         lastReportedProgress[videoId] = 1.0
         segmentedDelegate?.segmentedDownloadDidUpdateProgress(videoId: videoId, progress: 1.0)
-        oldDelegate?.downloadDidUpdateProgress(videoId: videoId,
-                                               receivedBytes: ctx.totalSize,
-                                               totalBytes: ctx.totalSize)
+        oldDelegate?.downloadDidUpdateProgress(
+            videoId: videoId,
+            receivedBytes: ctx.totalSize,
+            totalBytes: ctx.totalSize
+        )
         
         // Remove from active + remove the metadata entry
         activeDownloads.removeValue(forKey: videoId)
@@ -690,9 +694,19 @@ class SegmentedDownloadManager: NSObject {
                 return
             }
             
+            // ---------------------------
+            // CHANGE MADE HERE:
+            // ---------------------------
             guard let totalSize = totalSize, totalSize > 0 else {
-                let e = NSError(domain: "SegmentedDownload", code: 1,
-                                userInfo: [NSLocalizedDescriptionKey: "HEAD request invalid or missing Content-Length."])
+                // Updated user-friendly error message:
+                let e = NSError(
+                    domain: "SegmentedDownload",
+                    code: 1,
+                    userInfo: [
+                        NSLocalizedDescriptionKey:
+                            "The file was not found on the server. Please contact support at support@watchclips.app if the issue persists."
+                    ]
+                )
                 self.reportFailure(videoId, error: e)
                 return
             }
@@ -799,7 +813,6 @@ extension SegmentedDownloadManager: WKExtendedRuntimeSessionDelegate {
 }
 
 // MARK: - SegmentedDownloadContext
-
 private class SegmentedDownloadContext {
     let videoId: String
     let remoteURL: URL

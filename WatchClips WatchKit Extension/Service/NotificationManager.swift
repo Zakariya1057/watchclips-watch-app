@@ -59,9 +59,6 @@ class NotificationManager: NSObject, ObservableObject {
         if let image = video.image {
             userInfo["image"] = image
         }
-        if let url = video.url {
-            userInfo["url"] = url
-        }
         if let size = video.size {
             userInfo["size"] = size
         }
@@ -138,7 +135,6 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
         
         let title = userInfo["title"] as? String
         let image = userInfo["image"] as? String
-        let url = userInfo["url"] as? String
         let size = userInfo["size"] as? Int64
         let duration = userInfo["duration"] as? Int
         
@@ -164,7 +160,6 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
             title: title,
             image: image,
             filename: filename,
-            url: url,
             size: size,
             duration: duration,
             createdAt: createdAt,
