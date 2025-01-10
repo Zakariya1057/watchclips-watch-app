@@ -10,8 +10,10 @@ struct VideoPlayerView: View {
     private let videoId: String
     
     @EnvironmentObject private var playbackProgressService: PlaybackProgressService
+    @EnvironmentObject private var sharedVM: SharedVideosViewModel
     
-    @EnvironmentObject var sharedVM: SharedVideosViewModel
+    // ***** 1) Inject SettingsStore to read resumeWhereLeftOff
+    @EnvironmentObject private var settingsStore: SettingsStore
     
     @State private var video: Video?
     
@@ -96,9 +98,7 @@ struct VideoPlayerView: View {
                 VideoPlayer(player: player)
                     .opacity(downloadError == nil ? 1 : 0)
                     .onAppear {
-//                        if isPlaying {
-//                            player.play()
-//                        }
+                        // Possibly resume, but we let `initializePlayer` handle the logic
                     }
                     .onDisappear {
                         // 1) Save state
@@ -122,6 +122,7 @@ struct VideoPlayerView: View {
                     }
                     .zIndex(2)
             }
+            
             if let error = downloadError {
                 ZStack(alignment: .center) {
                     Color.black
@@ -145,8 +146,6 @@ struct VideoPlayerView: View {
                         .foregroundColor(.white)
                         .padding()
                     }
-                    // Expands the VStack to fill the entire ZStack,
-                    // with content aligned to the center.
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 }
                 .zIndex(3)
@@ -230,7 +229,7 @@ struct VideoPlayerView: View {
     }
     
     private func setupPlayerForRemote(_ url: URL) {
-        print(url)
+        print("Playing from remote URL => \(url)")
         let playerItem = AVPlayerItem(url: url)
         initializePlayer(with: playerItem, restoreState: false)
     }
@@ -255,21 +254,22 @@ struct VideoPlayerView: View {
                 case .readyToPlay:
                     updateNowPlayingInfo()
                     
-                    // Optionally restore previously saved progress if Pro user
-                    if sharedVM.activePlan?.name == .pro {
-                        if let (progress, _) = playbackProgressService.getProgress(videoId: videoId),
-                           progress > 0 {
-                            seekTo(time: progress, playIfNeeded: isPlaying)
-                        }
+                    // ***** 2) Only seek if user is Pro AND settingsStore.settings.resumeWhereLeftOff is true
+                    if sharedVM.activePlan?.name == .pro,
+                       settingsStore.settings.resumeWhereLeftOff == true,
+                       let (progress, _) = playbackProgressService.getProgress(videoId: videoId),
+                       progress > 0
+                    {
+                        seekTo(time: progress, playIfNeeded: isPlaying)
                     }
                     
-                    // Now that we've potentially sought to old progress, add the periodic time observer
+                    // Now that we've potentially sought old progress, add the periodic time observer
                     timeObserverToken = newPlayer.addPeriodicTimeObserver(
                         forInterval: CMTimeMake(value: 1, timescale: 1),
                         queue: .main
                     ) { _ in
                         let currentTime = newPlayer.currentTime().seconds
-                        // Optional: skip saving if exactly zero
+                        // Skip saving if exactly zero? up to you:
                         // if currentTime == 0 { return }
                         
                         playbackProgressService.setProgress(videoId: videoId, progress: currentTime)
@@ -309,7 +309,7 @@ struct VideoPlayerView: View {
             }
         }
         
-        // If told to restore state, seek to previous time & restore isPlaying
+        // If told to restore state, we still do it (in case user navigates away and back)
         if restoreState {
             seekTo(time: lastPlaybackTime, playIfNeeded: false)
             if wasPlayingBeforeSwitch {

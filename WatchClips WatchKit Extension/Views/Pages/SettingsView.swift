@@ -24,14 +24,20 @@ struct SettingsView: View {
                        ))
             }
             
-            Section("Playback") {
-                Toggle("Resume Where Left Off",
-                       isOn: Binding(
-                           get: { settingsStore.settings.resumeWhereLeftOff },
-                           set: { newVal in
-                               settingsStore.setResumeWhereLeftOff(newVal)
-                           }
-                       ))
+            // Only show Playback Section if plan is .pro & resumeFeature == true
+            if let plan = sharedVM.activePlan,
+               plan.name == .pro,
+               plan.features?.resumeFeature == true {
+                
+                Section("Playback") {
+                    Toggle("Resume Where Left Off",
+                           isOn: Binding(
+                               get: { settingsStore.settings.resumeWhereLeftOff },
+                               set: { newVal in
+                                   settingsStore.setResumeWhereLeftOff(newVal)
+                               }
+                           ))
+                }
             }
             
             // Support Section
@@ -63,8 +69,6 @@ struct SettingsView: View {
         }, message: {
             Text("This will also delete all downloaded videos. Are you sure?")
         })
-        .navigationTitle("Settings")
-        .navigationBarTitleDisplayMode(.inline)
     }
     
     private func deleteAllVideosAndLogout() async {
@@ -103,7 +107,7 @@ struct FeedbackView: View {
         List {
             Section("We’d love to hear your thoughts!") {
                 Text("""
-You can reach us at 
+You can reach us at
 support@watchclips.app.
 """)
                 .padding(.vertical, 10)
