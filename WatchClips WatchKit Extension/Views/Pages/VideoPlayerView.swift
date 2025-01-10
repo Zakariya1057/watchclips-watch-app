@@ -96,9 +96,9 @@ struct VideoPlayerView: View {
                 VideoPlayer(player: player)
                     .opacity(downloadError == nil ? 1 : 0)
                     .onAppear {
-                        if isPlaying {
-                            player.play()
-                        }
+//                        if isPlaying {
+//                            player.play()
+//                        }
                     }
                     .onDisappear {
                         // 1) Save state
@@ -236,13 +236,13 @@ struct VideoPlayerView: View {
     }
     
     private func initializePlayer(with playerItem: AVPlayerItem, restoreState: Bool) {
-        // Save last playback time from old player if needed
+        // Save last playback time from the old player if needed
         if let existingPlayer = player {
             lastPlaybackTime = existingPlayer.currentTime().seconds
             wasPlayingBeforeSwitch = isPlaying
         }
         
-        // Release any existing
+        // Release any existing player
         player = nil
         
         let newPlayer = AVPlayer(playerItem: playerItem)
@@ -255,17 +255,31 @@ struct VideoPlayerView: View {
                 case .readyToPlay:
                     updateNowPlayingInfo()
                     
+                    // Optionally restore previously saved progress if Pro user
                     if sharedVM.activePlan?.name == .pro {
                         if let (progress, _) = playbackProgressService.getProgress(videoId: videoId),
                            progress > 0 {
                             seekTo(time: progress, playIfNeeded: isPlaying)
-                            updatePlaybackStateIfReady()
                         }
-                    } else {
-                        updatePlaybackStateIfReady()
                     }
                     
+                    // Now that we've potentially sought to old progress, add the periodic time observer
+                    timeObserverToken = newPlayer.addPeriodicTimeObserver(
+                        forInterval: CMTimeMake(value: 1, timescale: 1),
+                        queue: .main
+                    ) { _ in
+                        let currentTime = newPlayer.currentTime().seconds
+                        // Optional: skip saving if exactly zero
+                        // if currentTime == 0 { return }
+                        
+                        playbackProgressService.setProgress(videoId: videoId, progress: currentTime)
+                        updateNowPlayingInfo()
+                    }
+                    
+                    // Ensure playback state is correct
+                    updatePlaybackStateIfReady()
                     isLoading = false
+                    
                 case .failed:
                     handlePlaybackError(
                         item.error,
@@ -274,13 +288,14 @@ struct VideoPlayerView: View {
                             : remoteURL,
                         fallbackToRemote: !currentlyUsingLocal
                     )
+                    
                 default:
                     break
                 }
             }
         }
         
-        // Observe player's timeControlStatus
+        // Observe player's timeControlStatus (play/pause)
         timeControlStatusObservation = newPlayer.observe(\.timeControlStatus, options: [.new]) { p, _ in
             DispatchQueue.main.async {
                 switch p.timeControlStatus {
@@ -294,29 +309,16 @@ struct VideoPlayerView: View {
             }
         }
         
-        // Periodic observer => saves progress (SQLite-based)
-        timeObserverToken = newPlayer.addPeriodicTimeObserver(
-            forInterval: CMTimeMake(value: 1, timescale: 1),
-            queue: .main
-        ) { _ in
-            playbackProgressService.setProgress(
-                videoId: videoId,
-                progress: newPlayer.currentTime().seconds
-            )
-            updateNowPlayingInfo()
-        }
-        
-        // Restore last time if needed
+        // If told to restore state, seek to previous time & restore isPlaying
         if restoreState {
             seekTo(time: lastPlaybackTime, playIfNeeded: false)
             if wasPlayingBeforeSwitch {
                 isPlaying = true
                 updatePlaybackStateIfReady()
             }
-        } else {
-            updatePlaybackStateIfReady()
         }
         
+        // Configure audio
         configureAudioSession()
     }
     
@@ -409,10 +411,6 @@ struct VideoPlayerView: View {
     private func seekTo(time: Double, playIfNeeded: Bool) {
         guard let p = player else { return }
         let targetTime = CMTime(seconds: time, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
-        p.seek(to: targetTime, toleranceBefore: .zero, toleranceAfter: .zero) { _ in
-            if isPlaying && playIfNeeded {
-                p.playImmediately(atRate: 1.0)
-            }
-        }
+        p.seek(to: targetTime, toleranceBefore: .zero, toleranceAfter: .zero) { _ in }
     }
 }
