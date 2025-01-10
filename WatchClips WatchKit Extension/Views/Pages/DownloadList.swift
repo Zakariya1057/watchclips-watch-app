@@ -140,19 +140,19 @@ struct DownloadList: View {
         }
         // On scene becoming active, refresh
         .onChange(of: scenePhase) { newPhase in
-            if newPhase == .active {
-                Task {
-                    await sharedVM.refreshVideos(code: code, forceRefresh: true)
-                    downloadsVM.onAppearCheckForURLChanges()
-                }
-            }
+//            if newPhase == .active {
+//                Task {
+//                    await sharedVM.refreshVideos(code: code, forceRefresh: true)
+//                    downloadsVM.onAppearCheckForURLChanges()
+//                }
+//            }
         }
         // On appear => do initial refresh and start the new processing checker from VM
         .onAppear {
-            Task {
-                await sharedVM.refreshVideos(code: code, forceRefresh: true)
-                downloadsVM.onAppearCheckForURLChanges()
-            }
+//            Task {
+//                await sharedVM.refreshVideos(code: code, forceRefresh: true)
+//                downloadsVM.onAppearCheckForURLChanges()
+//            }
         }
         // Hide default nav back button
         .navigationBarBackButtonHidden(true)
