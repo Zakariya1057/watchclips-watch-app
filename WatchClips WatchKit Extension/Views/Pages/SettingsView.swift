@@ -22,12 +22,14 @@ struct SettingsView: View {
                                settingsStore.setNotifyOnDownload(newVal)
                            }
                        ))
-                
-                Toggle("Notify on Video Optimized",
+            }
+            
+            Section("Playback") {
+                Toggle("Resume Where Left Off",
                        isOn: Binding(
-                           get: { settingsStore.settings.notifyOnOptimize },
+                           get: { settingsStore.settings.resumeWhereLeftOff },
                            set: { newVal in
-                               settingsStore.setNotifyOnOptimize(newVal)
+                               settingsStore.setResumeWhereLeftOff(newVal)
                            }
                        ))
             }

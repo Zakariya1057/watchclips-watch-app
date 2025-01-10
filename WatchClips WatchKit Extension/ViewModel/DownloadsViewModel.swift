@@ -265,14 +265,6 @@ class DownloadsViewModel: ObservableObject {
                     video: newVideo
                 )
                 persist()
-                
-                // (B) If it changed from `postProcessingSuccess` => not success,
-                // and user wants notifications, schedule one
-                if oldVideo.isOptimizing == true && newVideo.isOptimizing == false {
-                    if settingsStore.settings.notifyOnOptimize {
-                        notifyVideoNowOptimized(newVideo)
-                    }
-                }
             }
             
             // 2) Check if URL changed => resume if needed

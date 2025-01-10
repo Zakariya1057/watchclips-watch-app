@@ -5,7 +5,6 @@
 //  Created by Zakariya Hassan on 09/01/2025.
 //
 
-
 import Foundation
 
 final class SettingsStore: ObservableObject {
@@ -29,22 +28,23 @@ final class SettingsStore: ObservableObject {
         }
     }
     
-    /// Saves current settings to DB. 
+    /// Saves current settings to DB.
     /// Call this after making changes to `settings`.
     func save() {
         repository.saveSettings(settings)
     }
     
     // MARK: - Example convenience access
+    
     /// Toggle notifyOnDownload
     func setNotifyOnDownload(_ newValue: Bool) {
         settings.notifyOnDownload = newValue
         save()
     }
     
-    /// Toggle notifyOnOptimize
-    func setNotifyOnOptimize(_ newValue: Bool) {
-        settings.notifyOnOptimize = newValue
+    // 2) Add method for resumeWhereLeftOff
+    func setResumeWhereLeftOff(_ newValue: Bool) {
+        settings.resumeWhereLeftOff = newValue
         save()
     }
 }

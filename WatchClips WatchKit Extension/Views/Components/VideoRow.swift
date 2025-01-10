@@ -3,26 +3,22 @@ import SwiftUI
 struct VideoRow: View {
     let video: Video
     let isDownloaded: Bool
+    let watchProgress: Double?
     
-    // Shorter “hype” messages for watch screens
     private func getStatusDisplay(_ status: VideoStatus?) -> (message: String, color: Color, isLoading: Bool) {
         guard let status = status else {
             return ("Processing...", .gray, true)
         }
         
         switch status {
-        // Early or mid processing
         case .preProcessing, .processing, .chunking, .processingChunk:
             return ("Optimizing...", .blue, true)
         case .finalizing:
             return ("Finalizing...", .orange, true)
-        // Late processing
         case .chunkingComplete, .chunkProcessed:
             return ("Almost done...", .blue, true)
-        // Completed successfully
         case .postProcessingSuccess:
             return ("Watch ready!", .green, false)
-        // Errors
         case .postProcessingFailure, .chunkingFailure, .chunkProcessingFailure:
             return ("Failed", .red, false)
         }
@@ -32,29 +28,40 @@ struct VideoRow: View {
         let statusInfo = getStatusDisplay(video.status)
         
         VStack(alignment: .leading, spacing: 4) {
-            ZStack(alignment: .center) {
-                // 1) If fully processed => show thumbnail
+            
+            // 1) Use .bottomLeading for the main ZStack alignment
+            ZStack(alignment: .bottomLeading) {
+                
                 if video.status == .postProcessingSuccess {
+                    // 2) Fix the thumbnail's height so there's guaranteed space
                     CachedAsyncImage(
                         url: URL(string: "https://dwxvsu8u3eeuu.cloudfront.net/\(video.image ?? "")")!
                     ) { image in
                         image
                             .resizable()
-                            .scaledToFit()
+                            .scaledToFill()
+                            .frame(height: 100)
                             .clipped()
                     }
+                    
+                    if let watchProgress = watchProgress {
+                        // 3) The progress bar overlay is now at the bottom
+                        WatchProgressBar(
+                            watchProgress: watchProgress,
+                            totalDuration: Double(video.duration ?? 0)
+                        )
+                    }
                 } else {
-                    // 2) Show overlay & either a circular progress or fallback
+                    // Non-finished thumbnail placeholder/spinner
                     Rectangle()
                         .fill(Color.black.opacity(0.3))
-                        .frame(maxWidth: .infinity, maxHeight: 100)
-
-                    // If we have valid segment data, display progress circle
+                        .frame(height: 100)
+                    
                     if let processed = video.processedSegments,
                        let expected = video.expectedSegments,
                        expected > 0
                     {
-                        let fraction = Double(processed) / Double(expected+1)
+                        let fraction = Double(processed) / Double(expected + 1)
                         
                         VStack {
                             ZStack {
@@ -76,16 +83,18 @@ struct VideoRow: View {
                                     .font(.subheadline)
                                     .fontWeight(.bold)
                                     .foregroundColor(.white)
-                            }.padding(.bottom, 10)
+                            }
+                            .padding(.bottom, 10)
                             
                             Text("Processing")
                                 .foregroundColor(.white)
                                 .font(.headline)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 100, maxHeight: 100)
+                        .frame(maxWidth: .infinity, minHeight: 100)
+                        
                     } else {
-                        // Fallback: simple spinner + message
-                        VStack(spacing: 0) { // <— Set spacing to whatever smaller value you want
+                        // Fallback spinner + message
+                        VStack(spacing: 0) {
                             ProgressView()
                                 .progressViewStyle(
                                     CircularProgressViewStyle(tint: statusInfo.color)
@@ -97,13 +106,15 @@ struct VideoRow: View {
                                 .foregroundColor(.white)
                                 .font(.headline)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 100, maxHeight: 100)
+                        .frame(maxWidth: .infinity, minHeight: 100)
                     }
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 100, maxHeight: 100)
+            // Force the ZStack to fill the width and have fixed height
+            .frame(maxWidth: .infinity)
+            .frame(height: 100)
             
-            // 3) Video info below
+            // Video info below
             VStack(alignment: .leading, spacing: 6) {
                 Text(video.title ?? "Untitled")
                     .font(.headline)
@@ -122,48 +133,34 @@ struct VideoRow: View {
                         .foregroundColor(.secondary)
                 }
                 
-//                if let size = video.size, size > 0 {
-//                    Text("📄 \(formattedFileSize(size))")
-//                        .font(.subheadline)
-//                        .foregroundColor(.secondary)
-//                }
-                
                 Text("📅 \(formattedDate(video.createdAt))")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
         }
-        // Re-render if status changes
-        .id(video.status)
+        .id(video.status) // Re-render if status changes
     }
     
     private func formattedDate(_ date: Date) -> String {
         let calendar = Calendar.current
         
         if calendar.isDateInToday(date) {
-            // e.g. "Today at 11:05"
             return "Today at " + formattedTime(date)
         } else if calendar.isDateInYesterday(date) {
-            // e.g. "Yesterday at 12:05"
             return "Yesterday at " + formattedTime(date)
         } else {
-            // e.g. "11:05 PM at Jan 14, 2024"
             let time = formattedTime(date)
             let dateString = formattedDateString(date)
             return "\(dateString) at \(time)"
         }
     }
 
-    // MARK: - Helpers
-
-    /// Returns a short time format, e.g. "3:45 PM"
     private func formattedTime(_ date: Date) -> String {
         let timeFormatter = DateFormatter()
         timeFormatter.timeStyle = .short
         return timeFormatter.string(from: date)
     }
 
-    /// Returns a medium date format, e.g. "Jan 14, 2024"
     private func formattedDateString(_ date: Date) -> String {
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .medium
@@ -172,17 +169,14 @@ struct VideoRow: View {
     }
     
     private func formattedDuration(_ duration: Int) -> String {
-        // Convert total seconds into hours, minutes, seconds
         let hours = duration / 3600
         let leftover = duration % 3600
         let minutes = leftover / 60
         let seconds = leftover % 60
         
         if hours > 0 {
-            // If there's at least 1 hour, show HH:MM:SS
             return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
         } else {
-            // Otherwise, just show MM:SS
             return String(format: "%02d:%02d", minutes, seconds)
         }
     }

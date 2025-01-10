@@ -25,6 +25,7 @@
 		366B0C722D304F31009F518B /* SettingsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366B0C712D304F31009F518B /* SettingsRepository.swift */; };
 		366B0C742D304F3A009F518B /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366B0C732D304F3A009F518B /* SettingsStore.swift */; };
 		366B0C762D305538009F518B /* NotificationAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366B0C752D305538009F518B /* NotificationAction.swift */; };
+		366B0C782D311B03009F518B /* WatchProgressBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366B0C772D311B03009F518B /* WatchProgressBar.swift */; };
 		366C6B7A2D21F83500FA15E3 /* MarqueeText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366C6B792D21F83500FA15E3 /* MarqueeText.swift */; };
 		366C6B7C2D21F8FD00FA15E3 /* MarqueeTextLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366C6B7B2D21F8FD00FA15E3 /* MarqueeTextLoop.swift */; };
 		367907862D1F2A9500AE02EA /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367907852D1F2A9500AE02EA /* AppState.swift */; };
@@ -134,6 +135,7 @@
 		366B0C712D304F31009F518B /* SettingsRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRepository.swift; sourceTree = "<group>"; };
 		366B0C732D304F3A009F518B /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		366B0C752D305538009F518B /* NotificationAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationAction.swift; sourceTree = "<group>"; };
+		366B0C772D311B03009F518B /* WatchProgressBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchProgressBar.swift; sourceTree = "<group>"; };
 		366C6B792D21F83500FA15E3 /* MarqueeText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarqueeText.swift; sourceTree = "<group>"; };
 		366C6B7B2D21F8FD00FA15E3 /* MarqueeTextLoop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarqueeTextLoop.swift; sourceTree = "<group>"; };
 		367907852D1F2A9500AE02EA /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
@@ -215,6 +217,7 @@
 				367D83FB2D24455C00D13EE0 /* PlanBadgeView.swift */,
 				366C6B792D21F83500FA15E3 /* MarqueeText.swift */,
 				366C6B7B2D21F8FD00FA15E3 /* MarqueeTextLoop.swift */,
+				366B0C772D311B03009F518B /* WatchProgressBar.swift */,
 				36D977882D14C63500A8C717 /* CachedAsyncImage.swift */,
 				365ACBFF2D1738510078A6A4 /* DownloadRow.swift */,
 				36D9778F2D14C63500A8C717 /* VideoRow.swift */,
@@ -536,6 +539,7 @@
 				36918DBD2D1B3FC7008FB158 /* NotificationManager.swift in Sources */,
 				366B0C6E2D30461D009F518B /* SettingsView.swift in Sources */,
 				366C6B7A2D21F83500FA15E3 /* MarqueeText.swift in Sources */,
+				366B0C782D311B03009F518B /* WatchProgressBar.swift in Sources */,
 				366B0C742D304F3A009F518B /* SettingsStore.swift in Sources */,
 				360202802D2EC72800D6F8E7 /* FormattedFileSize.swift in Sources */,
 				36D9779D2D14C63500A8C717 /* VideoRow.swift in Sources */,

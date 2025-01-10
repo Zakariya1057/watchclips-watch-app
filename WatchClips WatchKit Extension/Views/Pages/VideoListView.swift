@@ -53,9 +53,13 @@ struct VideoListView: View {
                         
                         // MAIN list of videos
                         ForEach(Array(sharedVM.videos.enumerated()), id: \.element.id) { index, video in
+                            let currentProgressInSeconds = sharedVM.activePlan?.features?.resumeFeature == true ? playbackProgressService.getProgress(videoId: video.id)?.progress ?? 0 :
+                                nil
+                            
                             VideoRow(
                                 video: video,
-                                isDownloaded: downloadStore.isDownloaded(videoId: video.id)
+                                isDownloaded: downloadStore.isDownloaded(videoId: video.id),
+                                watchProgress: currentProgressInSeconds
                             )
                             .onTapGesture {
                                 if video.status == .postProcessingSuccess {
