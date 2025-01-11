@@ -38,17 +38,17 @@ struct VideoListView: View {
                     continueWatching
                     
                     if sharedVM.isOffline {
-                        offlineBannerRow
+                        OfflineBannerView()
                     }
                     
                     if sharedVM.videos.isEmpty {
                         if showLoadingIndicator {
-                            loadingRow
+                            LoadingView()
                         }
                         emptyOrErrorStateRows
                     } else {
                         if showLoadingIndicator {
-                            loadingRow
+                            LoadingView()
                         }
                         
                         // MAIN list of videos
@@ -212,29 +212,6 @@ struct VideoListView: View {
         }
     }
     
-    /// **A more descriptive loading view** after 1.5s delay
-    private var loadingRow: some View {
-        HStack {
-            VStack(spacing: 12) {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle())
-                    .scaleEffect(1.5)
-
-                // Combined message
-                Text("Loading videos...")
-                    .font(.headline)
-                
-                // Extra line to reassure user
-                Text("It's taking a bit of time.\nPlease be patient.")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding()
-        }
-        .padding()
-    }
-    
     @ViewBuilder
     private var emptyOrErrorStateRows: some View {
         VStack(spacing: 16) {
@@ -269,33 +246,5 @@ struct VideoListView: View {
         }
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.vertical, 20)
-    }
-    
-    private var offlineBannerRow: some View {
-        ZStack {
-            Color(red: 46/255, green: 36/255, blue: 89/255)
-                .cornerRadius(8)
-            
-            VStack(alignment: .center, spacing: 6) {
-                HStack(alignment: .center, spacing: 8) {
-                    Text("Offline Mode")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                    
-                    Image(systemName: "wifi.slash")
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(.white)
-                }
-                .frame(maxWidth: .infinity, alignment: .center)
-                
-                Text("No internet connection.\nWatch downloaded videos.")
-                    .font(.subheadline)
-                    .foregroundColor(Color.white.opacity(0.9))
-            }
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity)
-        }
-        .listRowInsets(EdgeInsets(top: 10, leading: 0, bottom: 10, trailing: 0))
-        .listRowBackground(Color.clear)
     }
 }

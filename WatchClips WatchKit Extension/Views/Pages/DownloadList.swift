@@ -16,9 +16,6 @@ struct DownloadList: View {
 
     let code: String
     
-    // Removed the local isMonitoringProcessing/checkProcessingTask/state & helper methods
-    // to move them into the DownloadsViewModel
-
     init(code: String) {
         self.code = code
     }
@@ -26,8 +23,12 @@ struct DownloadList: View {
     var body: some View {
         VStack {
             if sharedVM.videos.isEmpty {
+                if sharedVM.isOffline {
+                    OfflineBannerView()
+                }
+                
                 if showLoadingIndicator {
-                    loadingView
+                    LoadingView()
                 }
                 
                 if let error = sharedVM.errorMessage {
@@ -49,7 +50,7 @@ struct DownloadList: View {
                 }
             } else {
                 if showLoadingIndicator {
-                    loadingView
+                    LoadingView()
                 }
                 
                 // Main list of videos
@@ -138,22 +139,6 @@ struct DownloadList: View {
                 showLoadingIndicator = false
             }
         }
-        // On scene becoming active, refresh
-        .onChange(of: scenePhase) { newPhase in
-//            if newPhase == .active {
-//                Task {
-//                    await sharedVM.refreshVideos(code: code, forceRefresh: true)
-//                    downloadsVM.onAppearCheckForURLChanges()
-//                }
-//            }
-        }
-        // On appear => do initial refresh and start the new processing checker from VM
-        .onAppear {
-//            Task {
-//                await sharedVM.refreshVideos(code: code, forceRefresh: true)
-//                downloadsVM.onAppearCheckForURLChanges()
-//            }
-        }
         // Hide default nav back button
         .navigationBarBackButtonHidden(true)
         
@@ -173,27 +158,6 @@ struct DownloadList: View {
         } message: {
             Text("We’re still optimizing this video for Apple Watch. Please try again soon.")
         }
-    }
-    
-    /// Loading spinner + extra text to reassure the user
-    private var loadingView: some View {
-        HStack {
-            VStack(spacing: 12) {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle())
-                    .scaleEffect(1.4)
-                
-                Text("Loading videos...")
-                    .font(.headline)
-                
-                Text("It's taking a bit of time.\nPlease be patient.")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding()
-        }
-        .padding()
     }
 }
 
