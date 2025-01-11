@@ -147,9 +147,6 @@ class DownloadsViewModel: ObservableObject {
                 )
             }
         }
-        if let code = newVideos.first?.code {
-            startProcessingCheckerIfNeeded(code: code)
-        }
     }
     
     func loadLocalDownloads() {
@@ -284,7 +281,7 @@ class DownloadsViewModel: ObservableObject {
                     bgManager.resumeDownload(videoId: downloadedVideo.id, from: remoteURL)
                 }
             } else {
-                print("[DownloadsViewModel] onAppearCheckForURLChanges => (\(downloadedVideo.id))'s URL unchanged or not in progress. No action taken.")
+//                print("[DownloadsViewModel] onAppearCheckForURLChanges => (\(downloadedVideo.id))'s URL unchanged or not in progress. No action taken.")
             }
         }
         

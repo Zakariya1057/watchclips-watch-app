@@ -733,7 +733,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.91;
+				MARKETING_VERSION = 1.94;
 				PRODUCT_BUNDLE_IDENTIFIER = app.watchclips.watch.watchkitapp.watchkitextension;
 				PRODUCT_NAME = "${TARGET_NAME}";
 				SDKROOT = watchos;
@@ -759,7 +759,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.91;
+				MARKETING_VERSION = 1.94;
 				PRODUCT_BUNDLE_IDENTIFIER = app.watchclips.watch.watchkitapp.watchkitextension;
 				PRODUCT_NAME = "${TARGET_NAME}";
 				SDKROOT = watchos;
@@ -781,7 +781,7 @@
 				DEVELOPMENT_TEAM = 5FCM3X5N8A;
 				IBSC_MODULE = WatchClips_WatchKit_Extension;
 				INFOPLIST_FILE = "WatchClips WatchKit App/Info.plist";
-				MARKETING_VERSION = 1.91;
+				MARKETING_VERSION = 1.94;
 				PRODUCT_BUNDLE_IDENTIFIER = app.watchclips.watch.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -803,7 +803,7 @@
 				DEVELOPMENT_TEAM = 5FCM3X5N8A;
 				IBSC_MODULE = WatchClips_WatchKit_Extension;
 				INFOPLIST_FILE = "WatchClips WatchKit App/Info.plist";
-				MARKETING_VERSION = 1.91;
+				MARKETING_VERSION = 1.94;
 				PRODUCT_BUNDLE_IDENTIFIER = app.watchclips.watch.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -820,7 +820,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5FCM3X5N8A;
-				MARKETING_VERSION = 1.91;
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				MARKETING_VERSION = 1.94;
 				PRODUCT_BUNDLE_IDENTIFIER = app.watchclips.watch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
@@ -833,7 +834,8 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5FCM3X5N8A;
-				MARKETING_VERSION = 1.91;
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				MARKETING_VERSION = 1.94;
 				PRODUCT_BUNDLE_IDENTIFIER = app.watchclips.watch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;

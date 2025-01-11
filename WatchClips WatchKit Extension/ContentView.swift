@@ -31,7 +31,7 @@ struct ContentView: View {
                     VideoListView()
                         .onAppear {
                             Task {
-                                if let code = code, !videosSet {
+                                if let code = code, (!self.videosSet || sharedVM.videos.isEmpty) {
                                     await sharedVM.loadVideos(code: code, useCache: videosSet)
                                     downloadViewModel.setVideos(newVideos: sharedVM.videos)
                                     downloadViewModel.resumeInProgressDownloads()
