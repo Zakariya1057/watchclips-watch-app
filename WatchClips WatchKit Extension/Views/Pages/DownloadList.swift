@@ -10,7 +10,6 @@ struct DownloadList: View {
     @State private var showProcessingAlert = false
     @State private var selectedVideo: Video?
     
-    // Decouple loading indicators from `sharedVM.isLoading`
     @State private var showLoadingOverlay = false
     @State private var isLongWait = false
     @State private var loadingDelayTask: Task<Void, Never>? = nil
@@ -97,10 +96,6 @@ struct DownloadList: View {
                     }
                 }
                 .listStyle(.plain)
-                .transaction { transaction in
-                    // Disable implicit row animations
-                    transaction.animation = nil
-                }
             }
         }
         .toolbar {
