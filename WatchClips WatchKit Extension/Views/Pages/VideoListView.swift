@@ -25,9 +25,9 @@ struct VideoListView: View {
         decodeLoggedInState(from: loggedInStateData)?.code ?? ""
     }
     
-    // NEW: Track a delayed loading indicator
-    @State private var showLoadingIndicator = false
-    // Keep a reference to the "delay task" so we can cancel it
+    // MARK: Loading-state properties
+    @State private var showLoadingIndicator = false      // True if we are in a loading state
+    @State private var isLongWait = false                // True if we've been loading for more than 2 seconds
     @State private var loadingDelayTask: Task<Void, Never>? = nil
     
     var body: some View {
@@ -37,24 +37,21 @@ struct VideoListView: View {
                     downloadsLink
                     continueWatching
                     
+                    if showLoadingIndicator {
+                        LoadingOverlayView(isLongWait: isLongWait, hideSpinner: true)
+                    }
+                    
                     if sharedVM.isOffline {
                         OfflineBannerView()
                     }
                     
                     if sharedVM.videos.isEmpty {
-                        if showLoadingIndicator {
-                            LoadingView()
-                        }
                         emptyOrErrorStateRows
                     } else {
-                        if showLoadingIndicator {
-                            LoadingView()
-                        }
-                        
-                        // MAIN list of videos
                         ForEach(Array(sharedVM.videos.enumerated()), id: \.element.id) { index, video in
-                            let currentProgressInSeconds = sharedVM.activePlan?.features?.resumeFeature == true ? playbackProgressService.getProgress(videoId: video.id)?.progress ?? 0 :
-                                nil
+                            let currentProgressInSeconds = sharedVM.activePlan?.features?.resumeFeature == true
+                            ? playbackProgressService.getProgress(videoId: video.id)?.progress ?? 0
+                            : nil
                             
                             VideoRow(
                                 video: video,
@@ -99,23 +96,28 @@ struct VideoListView: View {
                     }
                 }
             }
-            // Watch for changes in isLoading to decide if we show the spinner
+            // Watch for changes in isLoading to drive our custom loading states
             .onChange(of: sharedVM.isLoading) { newValue in
                 if newValue {
-                    // Cancel any existing delay task
+                    // We just started loading => immediately show "Loading videos..."
+                    showLoadingIndicator = true
+                    isLongWait = false
+                    
+                    // Cancel any existing delay
                     loadingDelayTask?.cancel()
-                    // Schedule a new task for 1.5s in the future
+                    
+                    // Start a new 2-second delay => afterwards, if still loading, show the "long wait" message
                     loadingDelayTask = Task {
-                        try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
-                        // If still loading, show the indicator
+                        try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
                         if !Task.isCancelled && sharedVM.isLoading {
-                            showLoadingIndicator = true
+                            isLongWait = true
                         }
                     }
                 } else {
-                    // Not loading => hide the indicator and cancel the delay
-                    loadingDelayTask?.cancel()
+                    // Loading finished => hide everything
                     showLoadingIndicator = false
+                    isLongWait = false
+                    loadingDelayTask?.cancel()
                 }
             }
             .toolbar {

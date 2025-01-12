@@ -48,7 +48,7 @@
 		367D84072D2457D400D13EE0 /* PlanName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367D84062D2457D400D13EE0 /* PlanName.swift */; };
 		36918DBD2D1B3FC7008FB158 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36918DBC2D1B3FC7008FB158 /* NotificationManager.swift */; };
 		369A3FF12D32CC8000FD5D6A /* OfflineBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 369A3FF02D32CC7C00FD5D6A /* OfflineBannerView.swift */; };
-		369A3FF32D32CD7F00FD5D6A /* LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 369A3FF22D32CD7E00FD5D6A /* LoadingView.swift */; };
+		369A3FF32D32CD7F00FD5D6A /* LoadingOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 369A3FF22D32CD7E00FD5D6A /* LoadingOverlayView.swift */; };
 		36C643542D2D3FC6009777B6 /* SharedVideosViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C643532D2D3FC6009777B6 /* SharedVideosViewModel.swift */; };
 		36C643562D2D8B3C009777B6 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C643552D2D8B3C009777B6 /* HelpView.swift */; };
 		36D977972D14C63500A8C717 /* WatchClipsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D977942D14C63500A8C717 /* WatchClipsApp.swift */; };
@@ -160,7 +160,7 @@
 		367D84062D2457D400D13EE0 /* PlanName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanName.swift; sourceTree = "<group>"; };
 		36918DBC2D1B3FC7008FB158 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		369A3FF02D32CC7C00FD5D6A /* OfflineBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineBannerView.swift; sourceTree = "<group>"; };
-		369A3FF22D32CD7E00FD5D6A /* LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingView.swift; sourceTree = "<group>"; };
+		369A3FF22D32CD7E00FD5D6A /* LoadingOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingOverlayView.swift; sourceTree = "<group>"; };
 		36C643532D2D3FC6009777B6 /* SharedVideosViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedVideosViewModel.swift; sourceTree = "<group>"; };
 		36C643552D2D8B3C009777B6 /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
 		36D9777B2D14C63500A8C717 /* Video.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Video.swift; sourceTree = "<group>"; };
@@ -223,7 +223,7 @@
 				366C6B7B2D21F8FD00FA15E3 /* MarqueeTextLoop.swift */,
 				366B0C772D311B03009F518B /* WatchProgressBar.swift */,
 				36D977882D14C63500A8C717 /* CachedAsyncImage.swift */,
-				369A3FF22D32CD7E00FD5D6A /* LoadingView.swift */,
+				369A3FF22D32CD7E00FD5D6A /* LoadingOverlayView.swift */,
 				369A3FF02D32CC7C00FD5D6A /* OfflineBannerView.swift */,
 				365ACBFF2D1738510078A6A4 /* DownloadRow.swift */,
 				36D9778F2D14C63500A8C717 /* VideoRow.swift */,
@@ -553,7 +553,7 @@
 				365F15182D21F311001DE9D7 /* PlaybackProgressRepository.swift in Sources */,
 				367D83EF2D2436E900D13EE0 /* SubscriptionWithPlan.swift in Sources */,
 				367D83FE2D244BCA00D13EE0 /* UserSettingsRepository.swift in Sources */,
-				369A3FF32D32CD7F00FD5D6A /* LoadingView.swift in Sources */,
+				369A3FF32D32CD7F00FD5D6A /* LoadingOverlayView.swift in Sources */,
 				36D9779E2D14C63500A8C717 /* CachedVideosService.swift in Sources */,
 				36C643562D2D8B3C009777B6 /* HelpView.swift in Sources */,
 				36D9779F2D14C63500A8C717 /* ContentView.swift in Sources */,
@@ -733,7 +733,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.94;
+				MARKETING_VERSION = 1.95;
 				PRODUCT_BUNDLE_IDENTIFIER = app.watchclips.watch.watchkitapp.watchkitextension;
 				PRODUCT_NAME = "${TARGET_NAME}";
 				SDKROOT = watchos;
@@ -759,7 +759,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.94;
+				MARKETING_VERSION = 1.95;
 				PRODUCT_BUNDLE_IDENTIFIER = app.watchclips.watch.watchkitapp.watchkitextension;
 				PRODUCT_NAME = "${TARGET_NAME}";
 				SDKROOT = watchos;
@@ -781,7 +781,7 @@
 				DEVELOPMENT_TEAM = 5FCM3X5N8A;
 				IBSC_MODULE = WatchClips_WatchKit_Extension;
 				INFOPLIST_FILE = "WatchClips WatchKit App/Info.plist";
-				MARKETING_VERSION = 1.94;
+				MARKETING_VERSION = 1.95;
 				PRODUCT_BUNDLE_IDENTIFIER = app.watchclips.watch.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -803,7 +803,7 @@
 				DEVELOPMENT_TEAM = 5FCM3X5N8A;
 				IBSC_MODULE = WatchClips_WatchKit_Extension;
 				INFOPLIST_FILE = "WatchClips WatchKit App/Info.plist";
-				MARKETING_VERSION = 1.94;
+				MARKETING_VERSION = 1.95;
 				PRODUCT_BUNDLE_IDENTIFIER = app.watchclips.watch.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -821,7 +821,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5FCM3X5N8A;
 				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 1.94;
+				MARKETING_VERSION = 1.95;
 				PRODUCT_BUNDLE_IDENTIFIER = app.watchclips.watch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
@@ -835,7 +835,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5FCM3X5N8A;
 				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 1.94;
+				MARKETING_VERSION = 1.95;
 				PRODUCT_BUNDLE_IDENTIFIER = app.watchclips.watch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;

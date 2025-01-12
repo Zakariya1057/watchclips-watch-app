@@ -10,8 +10,9 @@ struct DownloadList: View {
     @State private var showProcessingAlert = false
     @State private var selectedVideo: Video?
     
-    // Decouple "loading too long" indicator from `sharedVM.isLoading`
-    @State private var showLoadingIndicator = false
+    // Decouple loading indicators from `sharedVM.isLoading`
+    @State private var showLoadingOverlay = false
+    @State private var isLongWait = false
     @State private var loadingDelayTask: Task<Void, Never>? = nil
 
     let code: String
@@ -22,19 +23,19 @@ struct DownloadList: View {
     
     var body: some View {
         VStack {
+            if showLoadingOverlay {
+                LoadingOverlayView(isLongWait: isLongWait, hideSpinner: false)
+            }
+            
             if sharedVM.videos.isEmpty {
                 if sharedVM.isOffline {
                     OfflineBannerView()
                 }
                 
-                if showLoadingIndicator {
-                    LoadingView()
-                }
-                
+                // Show error or empty state otherwise
                 if let error = sharedVM.errorMessage {
                     Text("Failed or no videos: \(error)")
-                }
-                else if !sharedVM.isLoading && !showLoadingIndicator {
+                } else if !sharedVM.isLoading && !showLoadingOverlay {
                     VStack(spacing: 16) {
                         Text("No Videos Found")
                             .font(.headline)
@@ -49,12 +50,11 @@ struct DownloadList: View {
                     .padding(.vertical, 20)
                 }
             } else {
-                if showLoadingIndicator {
-                    LoadingView()
-                }
-                
-                // Main list of videos
                 List {
+                    if sharedVM.isOffline {
+                        OfflineBannerView()
+                    }
+                    
                     ForEach(sharedVM.videos, id: \.id) { vid in
                         let downloadedVideo = downloadsVM.itemFor(video: vid)
                         
@@ -124,19 +124,28 @@ struct DownloadList: View {
                 }
             }
         }
-        // Monitor .isLoading changes in sharedVM
+        // Observe .isLoading changes to drive our custom two-step loading overlay
         .onChange(of: sharedVM.isLoading) { newValue in
             if newValue {
+                // Immediately show "Loading videos..."
+                showLoadingOverlay = true
+                isLongWait = false
+                
+                // Cancel any existing delay task
                 loadingDelayTask?.cancel()
+                
+                // After 2 seconds, if still loading, switch text to "Sorry for the wait..."
                 loadingDelayTask = Task {
-                    try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5s
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
                     if !Task.isCancelled && sharedVM.isLoading {
-                        showLoadingIndicator = true
+                        isLongWait = true
                     }
                 }
             } else {
+                // Done loading => reset overlay state
+                showLoadingOverlay = false
+                isLongWait = false
                 loadingDelayTask?.cancel()
-                showLoadingIndicator = false
             }
         }
         // Hide default nav back button
