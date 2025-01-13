@@ -174,12 +174,6 @@ struct VideoPlayerView: View {
         .onDisappear {
             statusObservation = nil
             
-            // Save final position one more time (SQLite-based)
-            if let p = player {
-                let currentTime = p.currentTime().seconds
-                playbackProgressService.setProgress(videoId: videoId, progress: currentTime)
-            }
-            
             // Clean up
             player?.pause()
             player?.replaceCurrentItem(with: nil)
