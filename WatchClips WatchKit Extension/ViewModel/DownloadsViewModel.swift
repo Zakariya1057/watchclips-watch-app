@@ -1,16 +1,9 @@
 import SwiftUI
 import WatchKit
 
-// MARK: - DownloadManagerDelegate
-protocol DownloadManagerDelegate: AnyObject {
-    func downloadDidUpdateProgress(videoId: String, receivedBytes: Int64, totalBytes: Int64)
-    func downloadDidComplete(videoId: String, localFileURL: URL?)
-    func downloadDidFail(videoId: String, error: Error)
-}
-
 // MARK: - SegmentedDownloadManagerDelegate
 protocol SegmentedDownloadManagerDelegate: AnyObject {
-    func segmentedDownloadDidUpdateProgress(videoId: String, progress: Double)
+    func segmentedDownloadDidUpdateProgress(videoId: String, receivedBytes: Int64, totalBytes: Int64, progress: Double)
     func segmentedDownloadDidComplete(videoId: String, fileURL: URL)
     func segmentedDownloadDidFail(videoId: String, error: any Error)
 }
@@ -29,7 +22,6 @@ class DownloadsViewModel: ObservableObject {
     
     // MARK: - Private Properties
     private let cachedVideosService: CachedVideosService
-    private let store = DownloadsStore()
     private let bgManager = SegmentedDownloadManager.shared
     
     private let sharedVM: SharedVideosViewModel
@@ -51,8 +43,6 @@ class DownloadsViewModel: ObservableObject {
         
         // Become the chunk-based delegate
         bgManager.segmentedDelegate = self
-        // (Optional) Also handle old-style callbacks:
-        bgManager.oldDelegate = self
         
         print("[DownloadsViewModel] Initialized with CachedVideosService & SettingsStore.")
         
@@ -60,90 +50,40 @@ class DownloadsViewModel: ObservableObject {
         loadLocalDownloads()
     }
     
-    // MARK: - Public API
-    
-    // ---------------------------
-    //     OPTIMIZING CHECKER
-    // ---------------------------
-    func startProcessingCheckerIfNeeded(code: String) {
-        guard !isMonitoringProcessing else {
-            print("[DownloadsViewModel] startProcessingCheckerIfNeeded => Already monitoring; returning early.")
-            return
-        }
-        
-        isMonitoringProcessing = true
-        print("[DownloadsViewModel] startProcessingCheckerIfNeeded => Starting optimizing checker (code=\(code)).")
-        
-        checkProcessingTask = Task {
-            while !Task.isCancelled {
-                // Check which videos are still "optimizing"
-                let optimizingVideos = sharedVM.videos.filter { $0.isOptimizing }
-                if optimizingVideos.isEmpty {
-                    print("[DownloadsViewModel] Checker => No videos currently optimizing. Stopping checker.")
-                    stopProcessingChecker()
-                    return
-                }
-                
-                print("[DownloadsViewModel] Checker => Found \(optimizingVideos.count) video(s) still optimizing. Will recheck after delay.")
-                
-                // Sleep ~2 minutes
-                do {
-                    try await Task.sleep(nanoseconds: 120_000_000_000)
-                } catch {
-                    print("[DownloadsViewModel] Checker => Task canceled during sleep.")
-                    break
-                }
-                
-                if !Task.isCancelled {
-                    print("[DownloadsViewModel] Checker => Refreshing videos now (code=\(code)).")
-                    await sharedVM.refreshVideos(code: code, forceRefresh: true)
-                    
-                    print("[DownloadsViewModel] Checker => Checking for updated URLs.")
-                    let anyUrlsChanged = onAppearCheckForURLChanges()
-                    
-                    if anyUrlsChanged {
-                        print("[DownloadsViewModel] Checker => URL changes detected. Stopping checker.")
-                        stopProcessingChecker()
-                    } else {
-                        print("[DownloadsViewModel] Checker => No URL changes detected; continuing.")
-                    }
-                } else {
-                    print("[DownloadsViewModel] Checker => Task canceled after refresh.")
-                }
-            }
-            
-            if Task.isCancelled {
-                print("[DownloadsViewModel] Checker => Exited loop because Task was canceled.")
-                stopProcessingChecker()
-            }
-        }
-    }
-
-    func stopProcessingChecker() {
-        print("[DownloadsViewModel] stopProcessingChecker => Canceling checker task and resetting flags.")
-        checkProcessingTask?.cancel()
-        checkProcessingTask = nil
-        isMonitoringProcessing = false
-    }
-    
     // ---------------------------
     //     VIDEO / DOWNLOADS
     // ---------------------------
     
     func setVideos(newVideos: [Video]) {
-        let downloadedVideo = store.loadDownloads()
+        // 1) Load the existing local DownloadedVideos from storage
+        let localDownloads = DownloadsStore.shared.loadDownloads()
         
-        videos = newVideos.map { video in
-            if let existing = downloadedVideo.first(where: { $0.video.id == video.id }) {
+        // 2) For each new Video from the server:
+        videos = newVideos.map { serverVideo in
+            
+            // 3) Check if we already have a matching DownloadedVideo
+            if var existing = localDownloads.first(where: { $0.video.id == serverVideo.id }) {
+                // -- P R E S E R V E  local fields (downloadStatus, downloadedBytes, etc.) --
+                // but update the underlying Video object (title, filename, etc.)
+                
+                existing.video = serverVideo
+                
+                // Also update totalBytes if the server’s size is different
+                // (but keep existing.downloadedBytes, status, etc. intact)
+                existing.totalBytes = serverVideo.size ?? existing.totalBytes
+                
+                // Return the merged DownloadedVideo
                 return existing
+                
             } else {
+                // 4) If no existing record, create a fresh DownloadedVideo
                 return DownloadedVideo(
-                    video: video,
+                    video: serverVideo,
                     downloadStatus: .notStarted,
                     downloadedBytes: 0,
-                    totalBytes: video.size ?? 0,
+                    totalBytes: serverVideo.size ?? 0,
                     errorMessage: nil,
-                    lastDownloadURL: URL(string: video.filename)
+                    lastDownloadURL: URL(string: serverVideo.filename)
                 )
             }
         }
@@ -151,16 +91,18 @@ class DownloadsViewModel: ObservableObject {
     
     func loadLocalDownloads() {
         print("[DownloadsViewModel] Loading locally persisted downloads from store...")
-        videos = store.loadDownloads()
+        videos = DownloadsStore.shared.loadDownloads()
         print("[DownloadsViewModel] Loaded \(videos.count) local downloads from store.")
     }
     
-    func persist() {
-        print("[DownloadsViewModel] Persisting downloads to store...")
-        store.saveDownloads(videos)
-        print("[DownloadsViewModel] Persist complete.")
+    func removeDownload(videoId: String) {
+        DownloadsStore.shared.removeById(videoId: videoId)
     }
 
+    func saveDownload(download: DownloadedVideo) {
+        DownloadsStore.shared.saveDownload(download: download)
+    }
+    
     func startOrResumeDownload(_ item: DownloadedVideo) {
         guard item.downloadStatus != .completed else {
             print("[DownloadsViewModel] \(item.id) is already completed.")
@@ -205,7 +147,7 @@ class DownloadsViewModel: ObservableObject {
             print("[DownloadsViewModel] [ERROR] Could not find video \(item.id) in current list to delete.")
         }
         
-        persist()
+        removeDownload(videoId: item.id)
     }
     
     func resumeInProgressDownloads() {
@@ -223,71 +165,7 @@ class DownloadsViewModel: ObservableObject {
             }
         }
     }
-    
-    /// Checks each downloadedVideo against the updated `sharedVM.videos`.
-    /// If a video changed from isOptimized = true to false, and user wants notifications, send it.
-    /// If a URL changed, we resume downloading.
-    ///
-    /// Returns `true` if any URL changed and was resumed, otherwise `false`.
-    @discardableResult
-    func onAppearCheckForURLChanges() -> Bool {
-        print("[DownloadsViewModel] onAppear => Checking for any changed URLs in all videos.")
-        var anyUrlsChanged = false
-        
-        for downloadedVideo in videos {
-            guard let updatedVideo = sharedVM.videos.first(where: { $0.id == downloadedVideo.video.id }) else {
-                // If not found in sharedVM, it might have been removed or something changed
-                print("[DownloadsViewModel] onAppearCheckForURLChanges => Canceling download, file removed remotely (\(downloadedVideo.id))")
-                bgManager.cancelDownload(videoId: downloadedVideo.id)
-                continue
-            }
-            
-            // 1) Check if video changed significantly (size, name, status, etc.)
-            let oldVideo = downloadedVideo.video
-            let newVideo = updatedVideo
-            
-            let oldFilename = oldVideo.filename
-            let newFilename = newVideo.filename
-            
-            // (A) If the entire Video object changed, update local model
-            if oldVideo != newVideo {
-                print("[DownloadsViewModel] onAppearCheckForURLChanges => Video changed! (id=\(downloadedVideo.id))")
-                
-                updateStatus(
-                    downloadedVideo.id,
-                    status: downloadedVideo.downloadStatus,
-                    receivedBytes: 0,
-                    totalBytes: newVideo.size,
-                    errorMessage: nil,
-                    video: newVideo
-                )
-                persist()
-            }
-            
-            // 2) Check if URL changed => resume if needed
-            let isFilenameChanged = (newFilename != oldFilename)
-            let isInProgress = (downloadedVideo.downloadStatus == .downloading)
-            
-            if isFilenameChanged || downloadedVideo.errorMessage != nil {
-                print("[DownloadsViewModel] onAppearCheckForURLChanges => (\(downloadedVideo.id))'s URL changed or had an error. Resuming download.")
-                
-                guard let remoteURL = buildRemoteURL(newVideo) else {
-                    print("[DownloadsViewModel] [ERROR] Could not build remote URL for \(downloadedVideo.id). Skipping.")
-                    continue
-                }
-                
-                if isInProgress {
-                    anyUrlsChanged = true
-                    bgManager.resumeDownload(videoId: downloadedVideo.id, from: remoteURL)
-                }
-            } else {
-//                print("[DownloadsViewModel] onAppearCheckForURLChanges => (\(downloadedVideo.id))'s URL unchanged or not in progress. No action taken.")
-            }
-        }
-        
-        return anyUrlsChanged
-    }
-    
+
     // MARK: - Helpers
     
     func progress(for item: DownloadedVideo) -> Double {
@@ -348,7 +226,7 @@ class DownloadsViewModel: ObservableObject {
         
         print("[DownloadsViewModel] Updated status for \(videoId) => \(status). downloadedBytes=\(v.downloadedBytes), totalBytes=\(v.totalBytes), error=\(errorMessage ?? "nil")")
         
-        persist()
+        saveDownload(download: v)
     }
 
     private func buildRemoteURL(_ video: Video) -> URL? {
@@ -371,27 +249,22 @@ class DownloadsViewModel: ObservableObject {
         ) { success in
             print("[DownloadsViewModel] notifyVideoNowOptimized => Notification scheduled? \(success)")
         }
-        
-        stopProcessingChecker()
     }
 
 }
 
 // MARK: - SegmentedDownloadManagerDelegate
 extension DownloadsViewModel: SegmentedDownloadManagerDelegate {
-    func segmentedDownloadDidUpdateProgress(videoId: String, progress: Double) {
+    func segmentedDownloadDidUpdateProgress(videoId: String, receivedBytes: Int64, totalBytes: Int64, progress: Double) {
         Task { @MainActor in
-            guard let idx = videos.firstIndex(where: { $0.id == videoId }) else { return }
-            let item = videos[idx]
-            let total = item.totalBytes
-            let current = Int64(Double(total) * progress)
-            
             updateStatus(
                 videoId,
                 status: .downloading,
-                receivedBytes: current,
-                totalBytes: total
+                receivedBytes: receivedBytes,
+                totalBytes: totalBytes
             )
+            
+            print("Received: \(receivedBytes)")
             
             print("[DownloadsViewModel] [Segmented] \(videoId) => progress: \((progress * 100).rounded())%")
         }
@@ -423,36 +296,6 @@ extension DownloadsViewModel: SegmentedDownloadManagerDelegate {
         Task { @MainActor in
             let message = "[DownloadsViewModel] [Segmented] \(videoId) => Failed: \(error.localizedDescription)"
             print(message)
-            updateStatus(videoId, status: .error, errorMessage: error.localizedDescription)
-        }
-    }
-}
-
-// MARK: - Old DownloadManagerDelegate
-extension DownloadsViewModel: DownloadManagerDelegate {
-    func downloadDidUpdateProgress(videoId: String, receivedBytes: Int64, totalBytes: Int64) {
-        Task { @MainActor in
-            print("[DownloadsViewModel] [OldDelegate] \(videoId) => progress: \(receivedBytes)/\(totalBytes)")
-            updateStatus(
-                videoId,
-                status: .downloading,
-                receivedBytes: receivedBytes,
-                totalBytes: totalBytes
-            )
-        }
-    }
-    
-    func downloadDidComplete(videoId: String, localFileURL: URL?) {
-        Task { @MainActor in
-            print("[DownloadsViewModel] [OldDelegate] \(videoId) => Complete, file: \(localFileURL?.lastPathComponent ?? "nil")")
-            updateStatus(videoId, status: .completed)
-        }
-    }
-    
-    func downloadDidFail(videoId: String, error: Error) {
-        Task { @MainActor in
-            let msg = "[DownloadsViewModel] [OldDelegate] \(videoId) => Fail: \(error.localizedDescription)"
-            print(msg)
             updateStatus(videoId, status: .error, errorMessage: error.localizedDescription)
         }
     }

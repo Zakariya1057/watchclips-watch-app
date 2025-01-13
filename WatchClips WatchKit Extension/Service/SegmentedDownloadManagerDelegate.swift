@@ -1,7 +1,6 @@
 import Foundation
 import WatchKit
 
-
 // MARK: - SegmentedDownloadManager
 class SegmentedDownloadManager: NSObject {
     
@@ -9,6 +8,10 @@ class SegmentedDownloadManager: NSObject {
     
     private override init() {
         super.init()
+        
+        // Ensure the Documents directory exists (it should by default, but just in case).
+        let docsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        try? FileManager.default.createDirectory(at: docsDir, withIntermediateDirectories: true)
         
         // Load partial metadata from disk
         metadataList = loadMetadataListFromDisk()
@@ -41,7 +44,6 @@ class SegmentedDownloadManager: NSObject {
     
     // Delegates
     weak var segmentedDelegate: SegmentedDownloadManagerDelegate?
-    weak var oldDelegate: DownloadManagerDelegate?
     
     // Track of active downloads (videoId -> context)
     private var activeDownloads: [String: SegmentedDownloadContext] = [:]
@@ -59,10 +61,7 @@ class SegmentedDownloadManager: NSObject {
     // Optional extended runtime session
     private var extendedSession: WKExtendedRuntimeSession?
     
-    // ------------------------------------------------------------------------
-    // NEW: Keep track of last progress reported per videoId so progress doesn’t move backwards.
-    // If the URL changes, we reset this so we start fresh.
-    // ------------------------------------------------------------------------
+    // Keep track of last progress reported per videoId
     private var lastReportedProgress: [String: Double] = [:]
     
     // MARK: - Extended Runtime Session
@@ -98,7 +97,7 @@ class SegmentedDownloadManager: NSObject {
     }
     
     /// Start or resume a segmented download.
-    /// If there's already an active download for the same videoId, we cancel it first to avoid concurrency conflicts.
+    /// If there's already an active download for the same videoId, we cancel it first.
     func startDownload(videoId: String, from newURL: URL) {
         print("[SegmentedDownloadManager] startDownload(\(videoId)) => \(newURL)")
         
@@ -148,14 +147,10 @@ class SegmentedDownloadManager: NSObject {
                     return
                 }
                 
-                // (FIX) If partial data exists => continue from old partial
+                // If partial data exists => continue from old partial
                 if !existingMeta.finishedSegments.isEmpty {
                     print("[SegmentedDownloadManager] Fallback => continuing partial data from old URL: \(oldURL).")
-                    self.createContextAndStart(
-                        videoId: videoId,
-                        remoteURL: oldURL,
-                        totalSize: existingMeta.totalSize
-                    )
+                    self.createContextAndStart(videoId: videoId, remoteURL: oldURL, totalSize: existingMeta.totalSize)
                 } else {
                     print("[SegmentedDownloadManager] No partial data => can't fallback => fail.")
                     let e = NSError(domain: "SegmentedDownload", code: -1,
@@ -264,17 +259,17 @@ class SegmentedDownloadManager: NSObject {
             print("[SegmentedDownloadManager] Removed metadataList file => \(metaListFile.lastPathComponent)")
         }
         
-        // 4) Remove all .mp4 in caches
-        let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        // 4) Remove any existing .mp4 in Documents
+        let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         do {
-            let allCacheFiles = try FileManager.default.contentsOfDirectory(atPath: cachesDir.path)
-            for fileName in allCacheFiles where fileName.hasSuffix(".mp4") {
-                let fileURL = cachesDir.appendingPathComponent(fileName)
+            let docFiles = try FileManager.default.contentsOfDirectory(atPath: documentsDir.path)
+            for fileName in docFiles where fileName.hasSuffix(".mp4") {
+                let fileURL = documentsDir.appendingPathComponent(fileName)
                 try? FileManager.default.removeItem(at: fileURL)
                 print("[SegmentedDownloadManager] Removed => \(fileURL.lastPathComponent)")
             }
         } catch {
-            print("[SegmentedDownloadManager] [ERROR] reading cachesDir => \(error)")
+            print("[SegmentedDownloadManager] [ERROR] reading documentsDir => \(error)")
         }
         
         // 5) Remove partial segments from temp
@@ -305,6 +300,7 @@ class SegmentedDownloadManager: NSObject {
             print("[SegmentedDownloadManager] Deleted .mp4 for \(videoId).")
         }
         
+        // Delete partial segments
         if let meta = metadataList[videoId] {
             let totalSegs = meta.numberOfSegments(chunkSize: chunkSize)
             for i in 0..<totalSegs {
@@ -366,7 +362,7 @@ class SegmentedDownloadManager: NSObject {
             let segURL = tempSegmentURL(videoId: videoId, index: i)
             if FileManager.default.fileExists(atPath: segURL.path) {
                 diskCount += 1
-                // If we see a partial file on disk not in metadata, add it
+                // If we see a partial file not in metadata, add it
                 if !(metadataList[videoId]?.finishedSegments.contains(i) ?? false) {
                     metadataList[videoId]?.finishedSegments.append(i)
                 }
@@ -488,11 +484,11 @@ class SegmentedDownloadManager: NSObject {
                 }
                 
                 // Notify
-                self.segmentedDelegate?.segmentedDownloadDidUpdateProgress(videoId: videoId, progress: fraction)
-                self.oldDelegate?.downloadDidUpdateProgress(
+                self.segmentedDelegate?.segmentedDownloadDidUpdateProgress(
                     videoId: videoId,
-                    receivedBytes: Int64(Double(fraction) * Double(ctx.totalSize)),
-                    totalBytes: ctx.totalSize
+                    receivedBytes: ctx.completedBytes,
+                    totalBytes: ctx.totalSize,
+                    progress: fraction
                 )
                 
                 // Next segment
@@ -572,19 +568,12 @@ class SegmentedDownloadManager: NSObject {
         
         // Mark 100%
         lastReportedProgress[videoId] = 1.0
-        segmentedDelegate?.segmentedDownloadDidUpdateProgress(videoId: videoId, progress: 1.0)
-        oldDelegate?.downloadDidUpdateProgress(
-            videoId: videoId,
-            receivedBytes: ctx.totalSize,
-            totalBytes: ctx.totalSize
-        )
         
         // Remove from active + metadata
         activeDownloads.removeValue(forKey: videoId)
         metadataList.removeValue(forKey: videoId)
         
         segmentedDelegate?.segmentedDownloadDidComplete(videoId: videoId, fileURL: finalURL)
-        oldDelegate?.downloadDidComplete(videoId: videoId, localFileURL: finalURL)
         
         // Clean up
         lastReportedProgress.removeValue(forKey: videoId)
@@ -600,7 +589,6 @@ class SegmentedDownloadManager: NSObject {
         lastReportedProgress.removeValue(forKey: videoId)
         
         segmentedDelegate?.segmentedDownloadDidFail(videoId: videoId, error: error)
-        oldDelegate?.downloadDidFail(videoId: videoId, error: error)
     }
     
     // MARK: - Network Helpers
@@ -642,7 +630,6 @@ class SegmentedDownloadManager: NSObject {
         task.resume()
     }
     
-    /// Clear old partial data, reset metadata, then do HEAD on the new URL
     private func switchToNewURLAndRestart(videoId: String, newURL: URL) {
         deleteLocalFile(videoId: videoId)
         
@@ -658,7 +645,6 @@ class SegmentedDownloadManager: NSObject {
         doHeadAndStart(videoId: videoId, url: newURL)
     }
     
-    /// HEAD + create context, or fallback to partial if HEAD fails but partial data exists
     private func doHeadAndStart(videoId: String, url: URL) {
         let existingMeta = metadataList[videoId]
         let partialExists = !(existingMeta?.finishedSegments.isEmpty ?? true)
@@ -673,7 +659,7 @@ class SegmentedDownloadManager: NSObject {
             }
             
             guard let totalSize = totalSize, totalSize > 0 else {
-                // (FIX) If HEAD fails but partial exists => continue
+                // If HEAD fails but partial exists => continue
                 if partialExists, let meta = existingMeta {
                     print("[SegmentedDownloadManager] doHeadAndStart => HEAD failed but partial data found => continuing partial.")
                     DispatchQueue.main.async {
@@ -710,18 +696,19 @@ class SegmentedDownloadManager: NSObject {
             )
             
             self.lastReportedProgress.removeValue(forKey: videoId)
-            
             self.createContextAndStart(videoId: videoId, remoteURL: url, totalSize: totalSize)
         }
     }
     
     // MARK: - Disk Helpers
     
+    /// **Changed**: Now we store final .mp4 in the Documents directory
     func localFileURL(videoId: String) -> URL {
-        let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-        return cachesDir.appendingPathComponent("\(videoId).mp4")
+        let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        return documentsDir.appendingPathComponent("\(videoId).mp4")
     }
     
+    /// Partial segments remain in `tmp` (which is fine for ephemeral chunk data)
     func tempSegmentURL(videoId: String, index: Int) -> URL {
         let tmpDir = FileManager.default.temporaryDirectory
         return tmpDir.appendingPathComponent("\(videoId)_part\(index).tmp")
@@ -729,6 +716,7 @@ class SegmentedDownloadManager: NSObject {
     
     // MARK: - Persistence
     
+    /// **Changed**: Now store `SegmentedDownloads.json` in Documents as well
     private func saveMetadataListToDisk() {
         do {
             let array = Array(metadataList.values)
@@ -759,8 +747,8 @@ class SegmentedDownloadManager: NSObject {
     }
     
     private func metadataListURL() -> URL {
-        let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-        return cacheDir.appendingPathComponent("SegmentedDownloads.json")
+        let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        return documentsDir.appendingPathComponent("SegmentedDownloads.json")
     }
     
     private func refreshLocalSegmentsForAll() {

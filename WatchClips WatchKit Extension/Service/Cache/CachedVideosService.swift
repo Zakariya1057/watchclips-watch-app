@@ -5,9 +5,6 @@ class CachedVideosService: ObservableObject {
     
     // Replace any file-related constants with a reference to our repository
     private let repository = CachedVideosRepository.shared
-    
-    // Add a reference to DownloadsStore (assuming you want to remove from there too)
-    private let downloadsStore = DownloadsStore()
 
     init(videosService: VideosService) {
         self.videosService = videosService
@@ -44,7 +41,7 @@ class CachedVideosService: ObservableObject {
                     // Remove from our local cache + downloads store
                     for videoId in removedIDs {
                         removeFromCache(id: videoId)
-                        downloadsStore.removeById(videoId: videoId)
+                        DownloadsStore.shared.removeById(videoId: videoId)
                     }
                     
                 } catch {

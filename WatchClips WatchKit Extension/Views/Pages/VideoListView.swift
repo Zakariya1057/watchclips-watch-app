@@ -15,7 +15,6 @@ struct VideoListView: View {
     @State private var pageLoaded = false
     
     @StateObject private var notificationManager = NotificationManager.shared
-    var downloadStore: DownloadsStore = DownloadsStore()
     
     // AppState singleton that holds the current selectedVideo
     @StateObject private var appState = AppState.shared
@@ -55,7 +54,7 @@ struct VideoListView: View {
                             
                             VideoRow(
                                 video: video,
-                                isDownloaded: downloadStore.isDownloaded(videoId: video.id),
+                                isDownloaded: DownloadsStore.shared.isDownloaded(videoId: video.id),
                                 watchProgress: currentProgressInSeconds
                             )
                             .onTapGesture {

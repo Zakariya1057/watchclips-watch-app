@@ -30,7 +30,6 @@ struct VideoPlayerView: View {
     @State private var currentlyUsingLocal = true
     @State private var didStartSetup = false
     
-    private var sessionManager: SessionManager = SessionManager()
     private let videosService = CachedVideosService(videosService: VideosService(client: supabase))
     
     @AppStorage("loggedInState") private var loggedInStateData = Data()

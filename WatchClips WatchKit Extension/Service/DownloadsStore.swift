@@ -16,6 +16,10 @@ class DownloadsStore {
         repository.saveAll(downloads)
     }
     
+    func saveDownload(download: DownloadedVideo) {
+        repository.insertOrReplace(download)
+    }
+    
     func removeById(videoId: String) -> Void {
         return repository.removeById(videoId)
     }

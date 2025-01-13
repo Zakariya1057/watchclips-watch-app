@@ -79,7 +79,7 @@ final class DownloadsRepository {
         }
     }
     
-    private func insertOrReplace(_ downloadedVideo: DownloadedVideo) {
+    public func insertOrReplace(_ downloadedVideo: DownloadedVideo) {
         DatabaseHelper.shared.performDatabaseOperation { db in
             guard let db = db else { return }
             

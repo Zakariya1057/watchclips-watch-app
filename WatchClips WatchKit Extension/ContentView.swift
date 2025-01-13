@@ -6,7 +6,7 @@ struct ContentView: View {
     
     @EnvironmentObject var videosService: VideosService
     @EnvironmentObject var cachedService: CachedVideosService
-    @EnvironmentObject var downloadViewModel: DownloadsViewModel
+    @EnvironmentObject var downloadsVM: DownloadsViewModel
     @EnvironmentObject var sharedVM: SharedVideosViewModel
     
     private var code: String? {
@@ -33,9 +33,8 @@ struct ContentView: View {
                             Task {
                                 if let code = code, (!self.videosSet || sharedVM.videos.isEmpty) {
                                     await sharedVM.loadVideos(code: code, useCache: videosSet)
-                                    downloadViewModel.setVideos(newVideos: sharedVM.videos)
-                                    downloadViewModel.resumeInProgressDownloads()
-                                    downloadViewModel.onAppearCheckForURLChanges()
+                                    downloadsVM.setVideos(newVideos: sharedVM.videos)
+                                    downloadsVM.resumeInProgressDownloads()
                                     self.videosSet = true
                                 }
                             }
@@ -51,6 +50,9 @@ struct ContentView: View {
                 NavigationStack {
                     SettingsView()
                 }
+            }
+            .onChange(of: sharedVM.videos) { newVidoes in
+                downloadsVM.setVideos(newVideos: newVidoes)
             }
             // Optional: You can switch between .automatic, .never, or remove this
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))

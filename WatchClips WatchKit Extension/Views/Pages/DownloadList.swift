@@ -13,7 +13,7 @@ struct DownloadList: View {
     @State private var showLoadingOverlay = false
     @State private var isLongWait = false
     @State private var loadingDelayTask: Task<Void, Never>? = nil
-
+    
     let code: String
     
     init(code: String) {
@@ -112,7 +112,6 @@ struct DownloadList: View {
                 Button {
                     Task {
                         await sharedVM.refreshVideos(code: code, forceRefresh: true)
-                        downloadsVM.onAppearCheckForURLChanges()
                     }
                 } label: {
                     Image(systemName: "arrow.clockwise")
