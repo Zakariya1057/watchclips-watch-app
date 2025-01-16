@@ -107,7 +107,10 @@ class SharedVideosViewModel: ObservableObject {
         for missingVid in missingVideos {
             print("Deleting video: \(missingVid.title ?? "")")
             DownloadsStore.shared.removeById(videoId: missingVid.id)
-            SegmentedDownloadManager.shared.removeDownloadCompletely(videoId: missingVid.id)
+            SegmentedDownloadManager.shared.removeDownloadCompletely(
+                videoId: missingVid.id,
+                fileExtension: (missingVid.filename as NSString).pathExtension
+            )
             PlaybackProgressService.shared.clearProgress(videoId: missingVid.id)
         }
     }

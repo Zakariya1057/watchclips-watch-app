@@ -132,7 +132,10 @@ class DownloadsViewModel: ObservableObject {
     func deleteVideo(_ item: DownloadedVideo) {
         print("[DownloadsViewModel] Deleting local file (and partial data) for \(item.id).")
         
-        bgManager.removeDownloadCompletely(videoId: item.id)
+        bgManager.removeDownloadCompletely(
+            videoId: item.id,
+            fileExtension: (item.video.filename as NSString).pathExtension
+        )
         
         var updated = item
         updated.downloadStatus = .notStarted

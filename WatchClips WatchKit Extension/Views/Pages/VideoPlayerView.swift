@@ -8,6 +8,7 @@ struct VideoPlayerView: View {
     @State var remoteURL: URL
     private let code: String
     private let videoId: String
+    private let fileExtension: String
     
     @EnvironmentObject private var playbackProgressService: PlaybackProgressService
     @EnvironmentObject private var sharedVM: SharedVideosViewModel
@@ -54,6 +55,7 @@ struct VideoPlayerView: View {
             fatalError("Invalid URL constructed with code: \(code) and videoId: \(videoId)")
         }
         self.remoteURL = url
+        self.fileExtension = url.pathExtension
     }
     
     // MARK: - Body
@@ -185,14 +187,14 @@ struct VideoPlayerView: View {
     private func prepareToPlay() {
         guard downloadError == nil else { return }
         
-        // 1) Check local .mp4
-        if SegmentedDownloadManager.shared.doesLocalFileExist(videoId: videoId) {
-            print("Playing from local")
-            let localURL = SegmentedDownloadManager.shared.localFileURL(videoId: videoId)
+        // 1) Check local file
+        if SegmentedDownloadManager.shared.doesLocalFileExist(videoId: videoId, fileExtension: fileExtension) {
+            let localURL = SegmentedDownloadManager.shared.localFileURL(videoId: videoId, fileExtension: fileExtension)
+            print("Playing from local: \(localURL)")
             currentlyUsingLocal = true
             setupPlayerForLocalFile(localURL, fallbackToRemote: true)
         } else {
-            print("Playing from remote")
+            print("Playing from remote: \(remoteURL)")
             currentlyUsingLocal = false
             setupPlayerForRemote(remoteURL)
         }
@@ -210,6 +212,7 @@ struct VideoPlayerView: View {
                     let newItem = AVPlayerItem(asset: asset)
                     initializePlayer(with: newItem, restoreState: true)
                 } else {
+                    print("Local file not playable - falling back to URL")
                     self.currentlyUsingLocal = false
                     if fallbackToRemote {
                         self.setupPlayerForRemote(self.remoteURL)
@@ -277,7 +280,7 @@ struct VideoPlayerView: View {
                     handlePlaybackError(
                         item.error,
                         attemptedURL: currentlyUsingLocal
-                            ? SegmentedDownloadManager.shared.localFileURL(videoId: videoId)
+                        ? SegmentedDownloadManager.shared.localFileURL(videoId: videoId, fileExtension: fileExtension)
                             : remoteURL,
                         fallbackToRemote: !currentlyUsingLocal
                     )
@@ -325,6 +328,8 @@ struct VideoPlayerView: View {
     }
     
     private func handlePlaybackError(_ error: Error?, attemptedURL: URL, fallbackToRemote: Bool) {
+        print(error, attemptedURL, fallbackToRemote)
+        
         if fallbackToRemote && attemptedURL != remoteURL {
             currentlyUsingLocal = false
             setupPlayerForRemote(remoteURL)
