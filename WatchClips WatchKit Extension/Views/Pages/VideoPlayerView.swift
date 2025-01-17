@@ -94,11 +94,19 @@ struct VideoPlayerView: View {
                 ZStack {
                     GeometryReader { proxy in
                         let size = proxy.size
-                        CachedAsyncImage(
-                            url: self.image,
-                            height: size.height
-                        ) { image in
-                            image
+                        
+                        if fileExtension == "mp4" {
+                            CachedAsyncImage(
+                                url: self.image,
+                                height: size.height
+                            ) { image in
+                                image
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: size.width, height: size.height)
+                            }
+                        } else {
+                            Image("audio")
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: size.width, height: size.height)

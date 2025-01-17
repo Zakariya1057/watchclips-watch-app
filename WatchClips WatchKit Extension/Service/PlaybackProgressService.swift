@@ -46,6 +46,7 @@ final class PlaybackProgressService: ObservableObject {
     /// Clear progress for all videos
     func clearAllProgress() {
         PlaybackProgressRepository.shared.clearAllProgress()
+        // TODO: Sort this out
         self.lastPlayedVideoId = nil
     }
 }
