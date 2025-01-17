@@ -48,10 +48,7 @@ struct VideoListView: View {
                         emptyOrErrorStateRows
                     } else {
                         ForEach(Array(sharedVM.videos.enumerated()), id: \.element.id) { index, video in
-                            let currentProgressInSeconds = sharedVM.activePlan?.features?.resumeFeature == true
-                            ? playbackProgressService.getProgress(videoId: video.id)?.progress ?? 0
-                            : nil
-                            
+                            let currentProgressInSeconds =  playbackProgressService.getProgress(videoId: video.id)?.progress ?? 0
                             VideoRow(
                                 video: video,
                                 isDownloaded: DownloadsStore.shared.isDownloaded(videoId: video.id),
@@ -185,7 +182,7 @@ struct VideoListView: View {
 
     private var continueWatching: some View {
         Group {
-            if !sharedVM.videos.isEmpty, let resume = sharedVM.activePlan?.features?.resumeFeature, resume == true {
+            if !sharedVM.videos.isEmpty {
                 if let lastPlayedVideoId = playbackProgressService.lastPlayedVideoId {
                     Button {
                         if let matchingVideo = sharedVM.videos.first(where: { $0.id == lastPlayedVideoId }) {

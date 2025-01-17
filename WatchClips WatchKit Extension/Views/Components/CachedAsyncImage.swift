@@ -24,6 +24,7 @@ fileprivate actor ImageMemoryCache {
 
 struct CachedAsyncImage<Content: View>: View {
     private let url: URL
+    private let height: Double
     private let content: (Image) -> Content
 
     @State private var uiImage: UIImage?
@@ -31,20 +32,21 @@ struct CachedAsyncImage<Content: View>: View {
     @State private var attempts = 0
     private let maxRetries = 3
 
-    init(url: URL, @ViewBuilder content: @escaping (Image) -> Content) {
+    init(url: URL, height: Double, @ViewBuilder content: @escaping (Image) -> Content) {
         self.url = url
         self.content = content
+        self.height = height
     }
 
     var body: some View {
         Group {
             if let uiImage = uiImage {
                 content(Image(uiImage: uiImage))
-                    .frame(height: 100)
+                    .frame(height: height)
             } else {
                 Rectangle()
                     .fill(Color.gray.opacity(0.3))
-                    .frame(height: 100)
+                    .frame(height: height)
                     .onAppear {
                         Task {
                             await loadImageIfNeeded()

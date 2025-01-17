@@ -35,7 +35,8 @@ struct VideoRow: View {
                 if video.status == .postProcessingSuccess {
                     // 2) Fix the thumbnail's height so there's guaranteed space
                     CachedAsyncImage(
-                        url: URL(string: "https://dwxvsu8u3eeuu.cloudfront.net/\(video.image ?? "")")!
+                        url: URL(string: "https://dwxvsu8u3eeuu.cloudfront.net/\(video.image ?? "")")!,
+                        height: 100
                     ) { image in
                         image
                             .resizable()

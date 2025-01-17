@@ -312,7 +312,8 @@ class SegmentedDownloadManager: NSObject {
         cancelDownload(videoId: videoId)
         
         // Figure out which extension was stored
-        let finalExtension = metadataList[videoId]?.finalExtension ?? ".\(fileExtension)"
+        let finalExtension = metadataList[videoId]?.finalExtension ?? "\(fileExtension)"
+        
         let finalURL = localFileURL(videoId: videoId, fileExtension: finalExtension)
         if FileManager.default.fileExists(atPath: finalURL.path) {
             try? FileManager.default.removeItem(at: finalURL)

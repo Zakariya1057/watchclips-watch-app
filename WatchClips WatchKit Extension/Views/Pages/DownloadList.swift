@@ -8,11 +8,12 @@ struct DownloadList: View {
     @Environment(\.scenePhase) private var scenePhase
     
     @State private var showProcessingAlert = false
-    @State private var selectedVideo: Video?
     
     @State private var showLoadingOverlay = false
     @State private var isLongWait = false
     @State private var loadingDelayTask: Task<Void, Never>? = nil
+    
+    @StateObject private var appState = AppState.shared
     
     let code: String
     
@@ -80,7 +81,7 @@ struct DownloadList: View {
                                 print("Play Video")
                                 // Attempt to play if downloaded
                                 if downloadedVideo.downloadStatus == .completed {
-                                    selectedVideo = downloadedVideo.video
+                                    appState.selectedVideo = downloadedVideo.video
                                 } else if downloadedVideo.video.status != .postProcessingSuccess {
                                     showProcessingAlert = true
                                 }
@@ -144,12 +145,6 @@ struct DownloadList: View {
         }
         // Hide default nav back button
         .navigationBarBackButtonHidden(true)
-        
-        // Full-Screen Video Playback
-        .fullScreenCover(item: $selectedVideo) { video in
-            VideoPlayerView(code: video.code, videoId: video.id, filename: video.filename)
-                .ignoresSafeArea()
-        }
         
         // “Video Not Ready” Alert
         .alert("Video Not Ready", isPresented: $showProcessingAlert) {

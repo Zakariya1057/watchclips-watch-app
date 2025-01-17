@@ -1,14 +1,22 @@
+//
+//  VideoPlayerView.swift
+//  YourAppName
+//
+//  Created by Your Name on SomeDate.
+//
+
 import SwiftUI
 import AVKit
 import AVFoundation
 import MediaPlayer
-import UIKit // For UIImage, if loading artwork
+import UIKit
 
 struct VideoPlayerView: View {
     @State var remoteURL: URL
     private let code: String
     private let videoId: String
     private let fileExtension: String
+    @State private var image: URL
     
     @EnvironmentObject private var playbackProgressService: PlaybackProgressService
     @EnvironmentObject private var sharedVM: SharedVideosViewModel
@@ -46,22 +54,29 @@ struct VideoPlayerView: View {
     @Environment(\.scenePhase) private var scenePhase
     
     // MARK: - Init
-    init(code: String, videoId: String, filename: String) {
-        self.code = code
-        self.videoId = videoId
+    init(video: Video) {
+        self.code = video.code
+        self.videoId = video.id
         
         // Default remote URL
-        guard let url = URL(string: "https://dwxvsu8u3eeuu.cloudfront.net/\(filename)") else {
+        guard let url = URL(string: "https://dwxvsu8u3eeuu.cloudfront.net/\(video.filename)") else {
             fatalError("Invalid URL constructed with code: \(code) and videoId: \(videoId)")
         }
         self.remoteURL = url
         self.fileExtension = url.pathExtension
+        
+        guard let imageUrl = URL(string: "https://dwxvsu8u3eeuu.cloudfront.net/\(video.image ?? "")") else {
+            fatalError("Invalid URL constructed with code: \(code) and videoId: \(videoId)")
+        }
+        self.image = imageUrl
+        
+        self.video = video
     }
     
     // MARK: - Body
     var body: some View {
         ZStack {
-            // Invisible tap target...
+            // Invisible tap target to toggle play/pause with a tap
             Button {
                 isPlaying ? player?.pause() : player?.play()
             } label: { }
@@ -70,12 +85,28 @@ struct VideoPlayerView: View {
             .handGestureShortcut(.primaryAction)
             .opacity(0)
             .zIndex(0)
+            .onAppear {
+                print("Image: \(self.image)")
+            }
             
-            // Loading overlay...
+            // Loading overlay (shows image & progress if still loading and no error)
             if isLoading && downloadError == nil {
                 ZStack {
+                    GeometryReader { proxy in
+                        let size = proxy.size
+                        CachedAsyncImage(
+                            url: self.image,
+                            height: size.height
+                        ) { image in
+                            image
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: size.width, height: size.height)
+                        }
+                    }
+                    
                     Color.black
-                        .opacity(1)
+                        .opacity(0.8)
                         .ignoresSafeArea()
                     
                     VStack(spacing: 16) {
@@ -99,7 +130,7 @@ struct VideoPlayerView: View {
                 VideoPlayer(player: player)
                     .opacity(downloadError == nil ? 1 : 0)
                     .onAppear {
-                        // Possibly resume, but we let `initializePlayer` handle the logic
+                        // Possibly resume; logic is handled in initializePlayer()
                     }
                     .onDisappear {
                         // 1) Save state
@@ -124,6 +155,7 @@ struct VideoPlayerView: View {
                     .zIndex(2)
             }
             
+            // Error overlay
             if let error = downloadError {
                 ZStack(alignment: .center) {
                     Color.black
@@ -153,7 +185,7 @@ struct VideoPlayerView: View {
             }
         }
         .toolbar {
-            // Hidden trailing item for layout
+            // Hidden trailing item to keep layout consistent
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: {}) { }
                     .opacity(0)
@@ -176,7 +208,7 @@ struct VideoPlayerView: View {
         .onDisappear {
             statusObservation = nil
             
-            // Clean up
+            // Clean up the AVPlayer
             player?.pause()
             player?.replaceCurrentItem(with: nil)
             player = nil
@@ -187,7 +219,7 @@ struct VideoPlayerView: View {
     private func prepareToPlay() {
         guard downloadError == nil else { return }
         
-        // 1) Check local file
+        // 1) Check local file first
         if SegmentedDownloadManager.shared.doesLocalFileExist(videoId: videoId, fileExtension: fileExtension) {
             let localURL = SegmentedDownloadManager.shared.localFileURL(videoId: videoId, fileExtension: fileExtension)
             print("Playing from local: \(localURL)")
@@ -250,29 +282,26 @@ struct VideoPlayerView: View {
                 case .readyToPlay:
                     updateNowPlayingInfo()
                     
-                    // ***** 2) Only seek if user is Pro AND settingsStore.settings.resumeWhereLeftOff is true
+                    // ***** 2) Resume only if user is Pro AND "resumeWhereLeftOff" is true
                     if sharedVM.activePlan?.name == .pro,
-                       settingsStore.settings.resumeWhereLeftOff == true,
+                       settingsStore.settings.resumeWhereLeftOff,
                        let (progress, _) = playbackProgressService.getProgress(videoId: videoId),
                        progress > 0
                     {
                         seekTo(time: progress, playIfNeeded: isPlaying)
                     }
                     
-                    // Now that we've potentially sought old progress, add the periodic time observer
+                    // Add periodic time observer for progress updates
                     timeObserverToken = newPlayer.addPeriodicTimeObserver(
                         forInterval: CMTimeMake(value: 1, timescale: 1),
                         queue: .main
                     ) { _ in
                         let currentTime = newPlayer.currentTime().seconds
-                        // Skip saving if exactly zero? up to you:
-                        // if currentTime == 0 { return }
-                        
                         playbackProgressService.setProgress(videoId: videoId, progress: currentTime)
                         updateNowPlayingInfo()
                     }
                     
-                    // Ensure playback state is correct
+                    // Ensure correct playback state
                     updatePlaybackStateIfReady()
                     isLoading = false
                     
@@ -280,7 +309,7 @@ struct VideoPlayerView: View {
                     handlePlaybackError(
                         item.error,
                         attemptedURL: currentlyUsingLocal
-                        ? SegmentedDownloadManager.shared.localFileURL(videoId: videoId, fileExtension: fileExtension)
+                            ? SegmentedDownloadManager.shared.localFileURL(videoId: videoId, fileExtension: fileExtension)
                             : remoteURL,
                         fallbackToRemote: !currentlyUsingLocal
                     )
@@ -291,7 +320,7 @@ struct VideoPlayerView: View {
             }
         }
         
-        // Observe player's timeControlStatus (play/pause)
+        // Observe player's timeControlStatus (playing/paused)
         timeControlStatusObservation = newPlayer.observe(\.timeControlStatus, options: [.new]) { p, _ in
             DispatchQueue.main.async {
                 switch p.timeControlStatus {
@@ -305,7 +334,7 @@ struct VideoPlayerView: View {
             }
         }
         
-        // If told to restore state, we still do it (in case user navigates away and back)
+        // If restoring state, seek to lastPlaybackTime
         if restoreState {
             seekTo(time: lastPlaybackTime, playIfNeeded: false)
             if wasPlayingBeforeSwitch {
@@ -328,7 +357,7 @@ struct VideoPlayerView: View {
     }
     
     private func handlePlaybackError(_ error: Error?, attemptedURL: URL, fallbackToRemote: Bool) {
-        print(error, attemptedURL, fallbackToRemote)
+        print("Playback error:", error as Any, " Attempted URL:", attemptedURL)
         
         if fallbackToRemote && attemptedURL != remoteURL {
             currentlyUsingLocal = false
@@ -405,10 +434,14 @@ struct VideoPlayerView: View {
             p.pause()
         }
     }
-
+    
     private func seekTo(time: Double, playIfNeeded: Bool) {
         guard let p = player else { return }
         let targetTime = CMTime(seconds: time, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
-        p.seek(to: targetTime, toleranceBefore: .zero, toleranceAfter: .zero) { _ in }
+        p.seek(to: targetTime, toleranceBefore: .zero, toleranceAfter: .zero) { _ in
+            if playIfNeeded {
+                p.play()
+            }
+        }
     }
 }

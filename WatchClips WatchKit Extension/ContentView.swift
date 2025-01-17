@@ -58,12 +58,10 @@ struct ContentView: View {
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .automatic))
             // Full-screen video player if a video is selected
             .fullScreenCover(item: $appState.selectedVideo) { video in
-                VideoPlayerView(
-                    code: video.code,
-                    videoId: video.id,
-                    filename: video.filename
-                )
-                .ignoresSafeArea()
+                if let video = appState.selectedVideo {
+                    VideoPlayerView(video: video)
+                        .ignoresSafeArea()
+                }
             }
         }
     }

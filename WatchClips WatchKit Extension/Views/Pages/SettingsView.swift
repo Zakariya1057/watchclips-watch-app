@@ -24,20 +24,14 @@ struct SettingsView: View {
                        ))
             }
             
-            // Only show Playback Section if plan is .pro & resumeFeature == true
-            if let plan = sharedVM.activePlan,
-               plan.name == .pro,
-               plan.features?.resumeFeature == true {
-                
-                Section("Playback") {
-                    Toggle("Resume Where Left Off",
-                           isOn: Binding(
-                               get: { settingsStore.settings.resumeWhereLeftOff },
-                               set: { newVal in
-                                   settingsStore.setResumeWhereLeftOff(newVal)
-                               }
-                           ))
-                }
+            Section("Playback") {
+                Toggle("Resume Where Left Off",
+                       isOn: Binding(
+                           get: { settingsStore.settings.resumeWhereLeftOff },
+                           set: { newVal in
+                               settingsStore.setResumeWhereLeftOff(newVal)
+                           }
+                       ))
             }
             
             // Support Section
