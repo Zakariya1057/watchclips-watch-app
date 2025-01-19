@@ -117,11 +117,12 @@ struct VideoListView: View {
                 }
             }
             .toolbar {
-//                ToolbarItem(placement: .topBarLeading) {
-//                    if let planName = sharedVM.activePlan?.name {
-//                        PlanBadgeView(planName: planName)
-//                    }
-//                }
+                if let planName = sharedVM.activePlan?.name, planName == .pro {
+                    ToolbarItem(placement: .topBarLeading) {
+                        PlanBadgeView(planName: planName)
+                    }
+                }
+
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         Task {

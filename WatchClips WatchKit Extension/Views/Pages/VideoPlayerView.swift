@@ -290,9 +290,7 @@ struct VideoPlayerView: View {
                 case .readyToPlay:
                     updateNowPlayingInfo()
                     
-                    // ***** 2) Resume only if user is Pro AND "resumeWhereLeftOff" is true
-                    if sharedVM.activePlan?.name == .pro,
-                       settingsStore.settings.resumeWhereLeftOff,
+                    if settingsStore.settings.resumeWhereLeftOff,
                        let (progress, _) = playbackProgressService.getProgress(videoId: videoId),
                        progress > 0
                     {
