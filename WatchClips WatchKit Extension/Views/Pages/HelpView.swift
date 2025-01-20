@@ -5,25 +5,53 @@ struct HelpView: View {
     var body: some View {
         NavigationView {
             List {
-                // New explanation about Optimizing / Optimized
+                // Existing items
                 NavigationLink("What does 'Optimizing' / 'Optimized' mean?", destination: WhatIsOptimizingView())
-                
-                NavigationLink("Why did my download restart?", destination: WhyDidMyDownloadRestartView()) // <-- NEW SECTION
-                
+                NavigationLink("Why did my download restart?", destination: WhyDidMyDownloadRestartView())
                 NavigationLink("How to Change Volume", destination: HowToChangeVolumeView())
                 NavigationLink("How to Skip Ahead", destination: HowToSkipAheadView())
+                NavigationLink("How to Connect Headphones/AirPods", destination: HowToConnectHeadphonesView())
+                NavigationLink("How to Keep App from Exiting", destination: HowToKeepAppOpenView())
                 
-                // How to Connect Headphones/AirPods
-                NavigationLink("How to Connect Headphones/AirPods",
-                               destination: HowToConnectHeadphonesView())
-                
-                // How to Keep App from Exiting
-                NavigationLink("How to Keep App from Exiting",
-                               destination: HowToKeepAppOpenView())
+                // NEW: Video/Audio Keeps Stopping section
+                NavigationLink("Video/Audio Keeps Stopping?", destination: PlaybackStopsView())
             }
             .padding(.top, 20)
         }
         .navigationTitle("Help")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - Video/Audio Keeps Stopping?
+struct PlaybackStopsView: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Video/Audio Keeps Stopping?")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+
+                Text("""
+If your video or audio stops when you press play, it could be because:
+• Your watch is currently on the charger
+• Low Power Mode is enabled
+
+Try removing your watch from the charger or disabling Low Power Mode, and see if playback resumes normally. These power-saving features can sometimes pause background apps or media playback.
+
+Steps to disable Low Power Mode:
+1. On your Apple Watch, open Settings.
+2. Tap on Battery.
+3. Toggle off Low Power Mode (if it’s on).
+
+Once done, re-open WatchClips and play your video/audio again.
+""")
+                .font(.body)
+                .padding(.top, 8)
+            }
+            .padding()
+        }
+        .navigationTitle("Playback Stopping?")
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -57,8 +85,7 @@ We always measure how much you've already downloaded versus how much time is sav
     }
 }
 
-// MARK: - Remaining Views...
-
+// MARK: - WhatIsOptimizingView
 struct WhatIsOptimizingView: View {
     var body: some View {
         ScrollView {
@@ -85,7 +112,7 @@ Yes! You can choose to download immediately. However, if the file is large (e.g.
     }
 }
 
-// MARK: - How to Keep App from Exiting
+// MARK: - HowToKeepAppOpenView
 struct HowToKeepAppOpenView: View {
     var body: some View {
         ScrollView {
@@ -121,7 +148,7 @@ With these settings, the Watch will stay in the WatchClips app for up to an hour
     }
 }
 
-// MARK: - How to Connect Headphones/AirPods
+// MARK: - HowToConnectHeadphonesView
 struct HowToConnectHeadphonesView: View {
     var body: some View {
         ScrollView {
@@ -166,7 +193,7 @@ struct HowToConnectHeadphonesView: View {
     }
 }
 
-// MARK: - Existing Detail Views
+// MARK: - HowToChangeVolumeView
 struct HowToChangeVolumeView: View {
     var body: some View {
         ScrollView {
@@ -188,6 +215,7 @@ struct HowToChangeVolumeView: View {
     }
 }
 
+// MARK: - HowToSkipAheadView
 struct HowToSkipAheadView: View {
     var body: some View {
         ScrollView {
